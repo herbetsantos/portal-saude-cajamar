@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administração — Portal Saúde Cajamar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__left">
+    <a class="brand" href="/portal.html"><img src="/assets/logo.png" alt="Prefeitura de Cajamar — Saúde"></a>
+    <nav class="nav">
+      <div class="nav__item">
+        <button class="nav__link" id="ferramentasTrigger" type="button">
+          <span class="label-text">FERRAMENTAS</span><span class="nav__caret"></span>
+        </button>
+        <div class="submenu" id="ferramentasMenu"></div>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" href="/documentos.html"><span class="label-text">DOCUMENTOS ÚTEIS</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" href="/manuais.html"><span class="label-text">MANUAIS DE USO</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" id="adminLink" href="/admin.html" style="display:none;background:rgba(255,255,255,0.14)"><span class="label-text">ADMINISTRAÇÃO</span></a>
+      </div>
+    </nav>
+  </div>
+  <div class="topbar__right">
+    <div class="user-chip" id="userChip"></div>
+    <button class="btn btn--ghost-light btn--sm" id="logoutBtn" type="button">Sair</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page__header">
+    <div class="eyebrow">Área restrita</div>
+    <h1 class="page__title">Administração</h1>
+    <p class="page__subtitle">Gerencie as ferramentas, documentos, manuais e os usuários com acesso ao portal.</p>
+  </div>
+
+  <div id="notAdminMsg" class="empty-state" style="display:none">
+    Esta área é restrita a administradores.
+  </div>
+
+  <div class="admin-shell" id="adminShell" style="display:none">
+    <div class="admin-tabs">
+      <button class="admin-tab is-active" data-tab="ferramenta">Ferramentas</button>
+      <button class="admin-tab" data-tab="documento">Documentos Úteis</button>
+      <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
+      <button class="admin-tab" data-tab="usuarios">Usuários</button>
+      <button class="admin-tab" data-tab="conta">Minha Conta</button>
+    </div>
+
+    <div class="admin-panel">
+
+      <!-- Ferramentas / Documentos / Manuais compartilham o mesmo template -->
+      <section class="panel-section is-active" data-panel="ferramenta">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Ferramentas</div>
+            <div class="panel-section__desc">Itens exibidos no submenu FERRAMENTAS do menu superior.</div>
+          </div>
+        </div>
+        <div class="table-wrap" data-table="ferramenta"></div>
+      </section>
+
+      <section class="panel-section" data-panel="documento">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Documentos Úteis</div>
+            <div class="panel-section__desc">Itens exibidos na página Documentos Úteis.</div>
+          </div>
+        </div>
+        <div class="table-wrap" data-table="documento"></div>
+      </section>
+
+      <section class="panel-section" data-panel="manual">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Manuais de Uso</div>
+            <div class="panel-section__desc">Itens exibidos na página Manuais de Uso.</div>
+          </div>
+        </div>
+        <div class="table-wrap" data-table="manual"></div>
+      </section>
+
+      <!-- Usuários -->
+      <section class="panel-section" data-panel="usuarios">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Usuários</div>
+            <div class="panel-section__desc">Pessoas com acesso ao portal.</div>
+          </div>
+        </div>
+        <div id="usersTableWrap"><div class="skeleton-loading">Carregando usuários…</div></div>
+
+        <form id="addUserForm" class="inline-form">
+          <div class="field">
+            <label for="uName">Nome completo</label>
+            <input type="text" id="uName" required>
+          </div>
+          <div class="field">
+            <label for="uUsername">Usuário (login)</label>
+            <input type="text" id="uUsername" required pattern="[a-z0-9._-]{3,32}" title="Letras minúsculas, números, ponto, hífen ou underline">
+          </div>
+          <div class="field">
+            <label for="uPassword">Senha provisória</label>
+            <input type="text" id="uPassword" required minlength="8">
+          </div>
+          <div class="field">
+            <label for="uRole">Papel</label>
+            <select id="uRole">
+              <option value="user">Usuário</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Adicionar usuário</button>
+          </div>
+          <div id="addUserMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+      </section>
+
+      <!-- Minha conta -->
+      <section class="panel-section" data-panel="conta">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Minha Conta</div>
+            <div class="panel-section__desc">Altere sua própria senha de acesso.</div>
+          </div>
+        </div>
+        <form id="changePasswordForm" style="max-width:340px">
+          <div class="field">
+            <label for="curPass">Senha atual</label>
+            <input type="password" id="curPass" required>
+          </div>
+          <div class="field">
+            <label for="newPass">Nova senha</label>
+            <input type="password" id="newPass" required minlength="8">
+          </div>
+          <div id="changePassMsg" class="form-msg"></div>
+          <button type="submit" class="btn btn--accent">Salvar nova senha</button>
+        </form>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<!-- Modal genérico de edição -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

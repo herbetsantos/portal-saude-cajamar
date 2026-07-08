@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar — Portal Saúde Cajamar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="brand"><img src="/assets/logo.png" alt="Prefeitura de Cajamar — Saúde"></div>
+      <div class="login-title">Portal Saúde</div>
+      <div class="login-subtitle">Acesso restrito a usuários autorizados</div>
+
+      <div id="formMsg" class="form-msg"></div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="username">Usuário</label>
+          <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn--accent" id="submitBtn">Entrar</button>
+      </form>
+
+      <div class="login-foot">Prefeitura Municipal de Cajamar · Secretaria de Saúde</div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const msg = document.getElementById('formMsg');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Se já estiver logado, vai direto pro portal.
+    fetch('/api/me', { credentials: 'same-origin' }).then((r) => {
+      if (r.ok) window.location.href = '/portal.html';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'form-msg';
+      msg.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Entrando…';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Não foi possível entrar.');
+        window.location.href = '/portal.html';
+      } catch (err) {
+        msg.className = 'form-msg is-error';
+        msg.textContent = err.message;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Entrar';
+      }
+    });
+  </script>
+</body>
+</html>

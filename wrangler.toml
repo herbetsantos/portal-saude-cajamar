@@ -1,0 +1,8 @@
+name = "portal-saude-cajamar"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "portal-saude-db"
+database_id = "COLE_AQUI_O_ID_DO_BANCO_D1"

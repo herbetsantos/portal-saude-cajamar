@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Saúde Cajamar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__left">
+    <a class="brand" href="/portal.html"><img src="/assets/logo.png" alt="Prefeitura de Cajamar — Saúde"></a>
+    <nav class="nav">
+      <div class="nav__item">
+        <button class="nav__link" id="ferramentasTrigger" type="button">
+          <span class="label-text">FERRAMENTAS</span><span class="nav__caret"></span>
+        </button>
+        <div class="submenu" id="ferramentasMenu"></div>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" href="/documentos.html"><span class="label-text">DOCUMENTOS ÚTEIS</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" href="/manuais.html"><span class="label-text">MANUAIS DE USO</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" id="adminLink" href="/admin.html" style="display:none"><span class="label-text">ADMINISTRAÇÃO</span></a>
+      </div>
+    </nav>
+  </div>
+  <div class="topbar__right">
+    <div class="user-chip" id="userChip"></div>
+    <button class="btn btn--ghost-light btn--sm" id="logoutBtn" type="button">Sair</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page__header">
+    <div class="eyebrow">Portal interno</div>
+    <h1 class="page__title">Bem-vindo(a) ao Portal Saúde</h1>
+    <p class="page__subtitle">Acesso rápido às ferramentas, documentos e manuais utilizados pela Secretaria de Saúde de Cajamar.</p>
+  </div>
+
+  <div class="grid" id="quickGrid"></div>
+</main>
+
+<script src="/js/common.js"></script>
+<script>
+  (async () => {
+    const user = await initPortalChrome();
+    if (!user) return;
+
+    const grid = document.getElementById('quickGrid');
+    try {
+      const res = await fetch('/api/links?category=ferramenta', { credentials: 'same-origin' });
+      const data = await res.json();
+      const tools = data.links || [];
+      const staticCards = [
+        { title: 'Documentos Úteis', desc: 'Formulários, portarias e materiais de referência.', href: '/documentos.html', icon: 'D' },
+        { title: 'Manuais de Uso', desc: 'Passo a passo dos sistemas e ferramentas do portal.', href: '/manuais.html', icon: 'M' },
+      ];
+      const toolCards = tools.map((t) => ({ title: t.title, desc: 'Abrir ferramenta em nova aba', href: t.url, icon: 'F', external: true }));
+
+      grid.innerHTML = [...toolCards, ...staticCards].map((c) => `
+        <a class="card" href="${escapeAttr(c.href)}" ${c.external ? 'target="_blank" rel="noopener"' : ''}>
+          <div class="card__icon">${escapeHtml(c.icon)}</div>
+          <div class="card__title">${escapeHtml(c.title)}</div>
+          <div class="card__desc">${escapeHtml(c.desc)}</div>
+        </a>
+      `).join('');
+    } catch {
+      grid.innerHTML = '<div class="empty-state">Não foi possível carregar os acessos rápidos.</div>';
+    }
+  })();
+</script>
+</body>
+</html>

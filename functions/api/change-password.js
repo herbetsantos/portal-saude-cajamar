@@ -1,0 +1,37 @@
+import { json, requireAuth, verifyPassword, hashPassword, randomHex } from './_utils.js';
+
+export async function onRequestPost({ request, env }) {
+  const { user, error } = await requireAuth(request, env);
+  if (error) return error;
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Requisição inválida.' }, 400);
+  }
+
+  const { currentPassword, newPassword } = body;
+  if (!currentPassword || !newPassword) {
+    return json({ error: 'Informe a senha atual e a nova senha.' }, 400);
+  }
+  if (newPassword.length < 8) {
+    return json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' }, 400);
+  }
+
+  const row = await env.DB.prepare('SELECT password_hash, salt FROM users WHERE id = ?')
+    .bind(user.id)
+    .first();
+
+  const ok = await verifyPassword(currentPassword, row.salt, row.password_hash);
+  if (!ok) return json({ error: 'Senha atual incorreta.' }, 401);
+
+  const newSalt = randomHex(16);
+  const newHash = await hashPassword(newPassword, newSalt);
+
+  await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?')
+    .bind(newHash, newSalt, user.id)
+    .run();
+
+  return json({ ok: true });
+}

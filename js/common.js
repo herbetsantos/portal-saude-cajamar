@@ -1,5 +1,50 @@
 // Funções compartilhadas entre as páginas do portal (exceto login.html).
 
+// Topbar única, compartilhada por todas as páginas. Esse HTML fica só aqui;
+// cada página só precisa ter <div id="app-topbar"></div> no lugar do
+// <header> antigo.
+const TOPBAR_HTML = `
+<header class="topbar">
+  <div class="topbar__left">
+    <a class="brand" href="/portal.html"><img src="/assets/logo.png" alt="Prefeitura de Cajamar — Saúde"></a>
+    <nav class="nav">
+      <div class="nav__item">
+        <button class="nav__link" id="ferramentasTrigger" type="button">
+          <span class="label-text">FERRAMENTAS</span><span class="nav__caret"></span>
+        </button>
+        <div class="submenu" id="ferramentasMenu"></div>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="documentos" href="/documentos.html"><span class="label-text">DOCUMENTOS ÚTEIS</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="manuais" href="/manuais.html"><span class="label-text">MANUAIS DE USO</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="admin" id="adminLink" href="/admin.html" style="display:none"><span class="label-text">ADMINISTRAÇÃO</span></a>
+      </div>
+    </nav>
+  </div>
+  <div class="topbar__right">
+    <div class="user-chip" id="userChip"></div>
+    <button class="btn btn--ghost-light btn--sm" id="logoutBtn" type="button">Sair</button>
+  </div>
+</header>`;
+
+// Injeta o topbar e marca visualmente o item ativo.
+// activeKey: 'documentos' | 'manuais' | 'admin' | 'ferramentas' | undefined (home).
+function renderTopbar(activeKey) {
+  const mount = document.getElementById('app-topbar');
+  if (!mount) return;
+  mount.innerHTML = TOPBAR_HTML;
+  if (activeKey === 'ferramentas') {
+    document.getElementById('ferramentasTrigger').style.background = 'rgba(255,255,255,0.14)';
+  } else if (activeKey) {
+    const el = mount.querySelector(`[data-nav="${activeKey}"]`);
+    if (el) el.style.background = 'rgba(255,255,255,0.14)';
+  }
+}
+
 async function requireLogin() {
   try {
     const res = await fetch('/api/me', { credentials: 'same-origin' });
@@ -80,7 +125,8 @@ function escapeHtml(str) {
 }
 function escapeAttr(str) { return escapeHtml(str); }
 
-async function initPortalChrome() {
+async function initPortalChrome(activeKey) {
+  renderTopbar(activeKey);
   const user = await requireLogin();
   if (!user) return null;
   renderTopbarUser(user);

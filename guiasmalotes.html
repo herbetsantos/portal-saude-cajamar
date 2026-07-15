@@ -305,6 +305,23 @@ body {
 .btn-gerar:hover { background: #145c2b; transform: translateY(-1px); }
 .btn-gerar:active { transform: translateY(0); }
 
+.btn-gerar-outline {
+  display: block; width: 100%;
+  background: #fff;
+  color: var(--verde); border: 2px solid var(--verde);
+  padding: 11px;
+  border-radius: 8px;
+  margin-top: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.02rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.1s;
+}
+.btn-gerar-outline:hover { background: #eafaf0; transform: translateY(-1px); }
+.btn-gerar-outline:active { transform: translateY(0); }
+.btn-gerar-outline[disabled] { opacity: 0.6; cursor: not-allowed; }
+
 /* ────────────────────────────────────────────────────────
    AVISOS / STATUS
 ──────────────────────────────────────────────────────── */
@@ -373,7 +390,7 @@ footer {
 ══════════════════════════════════════════════════════ -->
 <header class="topbar">
   <div class="topbar__left">
-    <a class="brand" href="/portal.html"><img src="/assets/logo.png" alt="Prefeitura de Cajamar — Saúde"></a>
+    <a class="brand" href="/portal.html"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></a>
     <nav class="nav">
       <div class="nav__item">
         <button class="nav__link" id="ferramentasTrigger" type="button">
@@ -588,9 +605,11 @@ footer {
       <p style="font-size:0.9rem; color:var(--texto-leve); margin-bottom:16px; line-height:1.6">
         Será gerado <strong>um arquivo PDF por unidade de destino</strong>,
         formatado como folha A4 paisagem com as duas vias A5 lado a lado,
-        pronto para impressão.
+        pronto para impressão. Ou, se preferir, baixe tudo em
+        <strong>um único PDF</strong>, com uma guia por unidade em cada página.
       </p>
       <button class="btn-gerar" id="btn-gerar" onclick="gerarTodos()">🖨 Gerar PDFs por Unidade</button>
+      <button class="btn-gerar-outline" id="btn-gerar-unico" onclick="gerarUnificado()">📎 Baixar PDF Único (todas as guias)</button>
       <div class="status-box" id="status-box">
         <span id="status-msg"></span>
       </div>
@@ -1315,6 +1334,110 @@ async function gerarTodos() {
 
   showStatus('sucesso',
     `${siglas.length} PDF(s) pronto(s): ${siglas.join(', ')}. Clique em "Baixar PDF" para salvar.`);
+}
+
+/* ──────────────────────────────────────────────────────
+   GERAÇÃO — PDF único com todas as guias (uma unidade por
+   página, na ordem de cadastro), com etiqueta de
+   identificação em cada página para facilitar a navegação
+────────────────────────────────────────────────────── */
+async function gerarUnificado() {
+  const dataVal = document.getElementById('data-remessa').value;
+  const validos = pacientes.filter(p => p.nome.trim() && p.destino);
+
+  document.getElementById('downloads-lista').innerHTML = '';
+  document.getElementById('status-box').style.display = 'none';
+
+  if (!dataVal)        { showStatus('erro', 'Defina a data da remessa na aba Guias.'); return; }
+  if (!validos.length) { showStatus('erro', 'Nenhum paciente com nome e destino preenchidos.'); return; }
+
+  const dataFmt = fmtDate(dataVal);
+  const btn = document.getElementById('btn-gerar-unico');
+
+  /* Agrupa por sigla de destino, preservando a ordem de cadastro */
+  const grupos = {};
+  const siglas = [];
+  validos.forEach(p => {
+    if (!grupos[p.destino]) { grupos[p.destino] = []; siglas.push(p.destino); }
+    grupos[p.destino].push(p);
+  });
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Montando PDF único...';
+
+  /* Contêiner com uma "página" de 297×210mm por unidade,
+     empilhadas verticalmente com quebra de página forçada
+     entre elas. */
+  const container = document.createElement('div');
+  container.style.cssText = 'width:297mm;';
+
+  siglas.forEach((sigla, idx) => {
+    const unidade      = unidades.find(u => u.sigla === sigla);
+    const nomeCompleto = unidade ? unidade.nome : sigla;
+    const pacs         = grupos[sigla];
+
+    const pagina = montarDocumento(nomeCompleto, dataFmt, pacs);
+    pagina.style.position = 'relative';
+    if (idx < siglas.length - 1) {
+      pagina.style.pageBreakAfter = 'always';
+      pagina.style.breakAfter = 'page';
+    }
+
+    /* Etiqueta discreta no canto de cada página, para achar
+       rapidamente a guia de cada unidade dentro do PDF */
+    const etiqueta = document.createElement('div');
+    etiqueta.style.cssText =
+      'position:absolute;top:2mm;right:5mm;z-index:2;' +
+      'font-size:7pt;color:#8a94a8;font-family:Montserrat,Arial,sans-serif;';
+    etiqueta.textContent = `Guia ${idx + 1} de ${siglas.length} — ${nomeCompleto}`;
+    pagina.appendChild(etiqueta);
+
+    container.appendChild(pagina);
+  });
+
+  const sandbox = document.createElement('div');
+  sandbox.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
+  sandbox.appendChild(container);
+  document.body.appendChild(sandbox);
+
+  await new Promise(r => setTimeout(r, 120));
+
+  const nomeArq = `Guias_Unificado_${(dataVal || '').replace(/-/g, '')}.pdf`;
+
+  try {
+    const pdfBlob = await html2pdf()
+      .set({
+        margin:      0,
+        filename:    nomeArq,
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak:   { mode: ['css', 'legacy'] }
+      })
+      .from(container)
+      .outputPdf('blob');
+
+    const url = URL.createObjectURL(pdfBlob);
+    const listaEl = document.getElementById('downloads-lista');
+    const item = document.createElement('div');
+    item.className = 'download-item';
+    item.innerHTML = `
+      <div>
+        <div class="dl-nome">PDF único — ${siglas.length} unidade(s)</div>
+        <div class="dl-info">${validos.length} paciente(s) · ${dataFmt} · ${esc(siglas.join(', '))}</div>
+      </div>
+      <a href="${url}" download="${nomeArq}" class="download-link">⬇ Baixar PDF</a>`;
+    listaEl.appendChild(item);
+
+    showStatus('sucesso',
+      `PDF único gerado com ${siglas.length} guia(s): ${siglas.join(', ')}. Clique em "Baixar PDF" para salvar.`);
+  } catch (e) {
+    showStatus('erro', `Erro ao gerar o PDF único: ${e.message}`);
+  }
+
+  document.body.removeChild(sandbox);
+  btn.disabled = false;
+  btn.textContent = '📎 Baixar PDF Único (todas as guias)';
 }
 
 /* ──────────────────────────────────────────────────────

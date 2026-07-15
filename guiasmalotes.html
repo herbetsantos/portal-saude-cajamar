@@ -1066,8 +1066,7 @@ const pdfBlob = await html2pdf().set({
   image: { type: 'jpeg', quality: 0.98 },
   html2canvas: {
     scale: 2, useCORS: true, logging: false,
-    windowWidth: wrapper.scrollWidth,
-    windowHeight: wrapper.scrollHeight
+    windowWidth: 1123, windowHeight: 794
   },
   jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
 }).from(wrapper).outputPdf('blob');

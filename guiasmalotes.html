@@ -925,8 +925,7 @@ function montarViaTermo(unidadeNome, dataFmt, itens) {
 
   ${brasaoEl}
 
-  <!-- BLOCO SUPERIOR — fluxo normal (sem flex), cresce conforme o conteúdo -->
-  <div style="position:relative;z-index:1;">
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;">
 
     <div style="text-align:center;margin-bottom:2mm;">
       ${logoEl}
@@ -971,12 +970,10 @@ function montarViaTermo(unidadeNome, dataFmt, itens) {
       eficiência e economicidade no seu emprego, conforme dispõe a Lei Federal
       nº 8.666/1993 e demais normas vigentes aplicáveis à Administração Pública Municipal.
     </div>
-  </div>
 
-  <!-- BLOCO INFERIOR — fixado no fim da página com position:absolute.
-       Não depende mais de flex:1 para "empurrar" o conteúdo, então o
-       html2canvas não erra mais a altura quando há poucos materiais. -->
-  <div style="position:absolute; left:9mm; right:9mm; bottom:0; z-index:1;">
+    <!-- ESPAÇADOR flexível empurra recebimento + rodapé para baixo,
+         seguindo o mesmo padrão já validado em montarVia (Guia). -->
+    <div style="flex:1;"></div>
 
     <table style="width:80%;border-collapse:collapse;font-size:7.5pt;
                   margin:0 auto 3mm auto;font-family:${FONT};">
@@ -1005,7 +1002,8 @@ function montarViaTermo(unidadeNome, dataFmt, itens) {
         CRISTAIS &ndash; JORDAN&Eacute;SIA &ndash; CAJAMAR / SP &ndash; CEP 07776-700
       </div>
     </div>
-  </div>
+
+  </div><!-- /flex col -->
 
 </div>`;
 }

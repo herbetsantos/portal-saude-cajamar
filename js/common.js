@@ -1,8 +1,8 @@
 // Funções compartilhadas entre as páginas do portal (exceto login.html).
 
-// Topbar única, compartilhada por todas as páginas. Esse HTML fica só aqui;
-// cada página só precisa ter <div id="app-topbar"></div> no lugar do
-// <header> antigo.
+// Topbar única, compartilhada por todas as páginas. Antes esse HTML estava
+// duplicado em cada arquivo .html; agora existe só aqui. Cada página só
+// precisa ter <div id="app-topbar"></div> no lugar do <header> antigo.
 const TOPBAR_HTML = `
 <header class="topbar">
   <div class="topbar__left">
@@ -32,7 +32,8 @@ const TOPBAR_HTML = `
 </header>`;
 
 // Injeta o topbar e marca visualmente o item ativo.
-// activeKey: 'documentos' | 'manuais' | 'admin' | 'ferramentas' | undefined (home).
+// activeKey: 'documentos' | 'manuais' | 'admin' | 'ferramentas' (usado pelas
+// páginas de ferramenta, ex. FacilitaWhats, Guias e Malotes) | undefined (home).
 function renderTopbar(activeKey) {
   const mount = document.getElementById('app-topbar');
   if (!mount) return;

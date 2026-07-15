@@ -6,7 +6,7 @@
 const TOPBAR_HTML = `
 <header class="topbar">
   <div class="topbar__left">
-    <a class="brand" href="/portal.html"><img src="/assets/logo.png" alt="Prefeitura de Cajamar — Saúde"></a>
+    <a class="brand" href="/portal.html"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></a>
     <nav class="nav">
       <div class="nav__item">
         <button class="nav__link" id="ferramentasTrigger" type="button">

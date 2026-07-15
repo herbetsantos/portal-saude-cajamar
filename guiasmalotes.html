@@ -757,7 +757,7 @@ function renderPacientes() {
 
     const dOpts = unidades.length
       ? unidades.map(u =>
-          `<option value="${esc(u.sigla)}" ${p.destino === u.sigla ? 'selected' : ''}>[${esc(u.sigla)}] ${esc(u.nome)}</option>`
+          `<option value="${esc(u.sigla)}" ${p.destino === u.sigla ? 'selected' : ''}>${esc(u.sigla)} — ${esc(u.nome)}</option>`
         ).join('')
       : `<option value="">— sem unidades cadastradas —</option>`;
 
@@ -798,7 +798,7 @@ function renderSelectsDestino() {
     const val = pacientes[i]?.destino || '';
     sel.innerHTML = unidades.length
       ? unidades.map(u =>
-          `<option value="${esc(u.sigla)}" ${val === u.sigla ? 'selected' : ''}>[${esc(u.sigla)}] ${esc(u.nome)}</option>`
+          `<option value="${esc(u.sigla)}" ${val === u.sigla ? 'selected' : ''}>${esc(u.sigla)} — ${esc(u.nome)}</option>`
         ).join('')
       : `<option value="">— sem unidades cadastradas —</option>`;
   });
@@ -849,6 +849,7 @@ function renderMateriais() {
   badge.textContent = materiais.length + ' item(ns)';
 
   materiais.forEach((m, i) => {
+    if (!m.unidade) m.unidade = 'un'; // garante que a unidade nunca fique em branco
     const uOpts = UNIDADES_MEDIDA.map(u =>
       `<option value="${u}" ${m.unidade === u ? 'selected' : ''}>${u}</option>`
     ).join('');
@@ -877,7 +878,7 @@ function renderSelectDestino() {
   sel.innerHTML = unidades.length
     ? '<option value="">— selecione —</option>' +
       unidades.map(u =>
-        `<option value="${esc(u.sigla)}" ${val === u.sigla ? 'selected' : ''}>[${esc(u.sigla)}] ${esc(u.nome)}</option>`
+        `<option value="${esc(u.sigla)}" ${val === u.sigla ? 'selected' : ''}>${esc(u.sigla)} — ${esc(u.nome)}</option>`
       ).join('')
     : '<option value="">— sem unidades cadastradas —</option>';
 }
@@ -912,7 +913,7 @@ function montarViaTermo(unidadeNome, dataFmt, itens) {
         <td style="text-align:center;font-weight:700;border:1px solid #1a3e6e;padding:3px 4px;${bg}width:5%;font-family:${FONT};font-size:7pt;">${i + 1}</td>
         <td style="border:1px solid #1a3e6e;padding:3px 5px;${bg}width:42%;font-weight:600;font-family:${FONT};font-size:7pt;">${esc(m.descricao.toUpperCase())}</td>
         <td style="border:1px solid #1a3e6e;padding:3px 5px;${bg}width:12%;text-align:center;font-family:${FONT};font-size:7pt;">${esc(m.qtd)}</td>
-        <td style="border:1px solid #1a3e6e;padding:3px 5px;${bg}width:11%;text-align:center;font-family:${FONT};font-size:7pt;">${esc(m.unidade)}</td>
+        <td style="border:1px solid #1a3e6e;padding:3px 5px;${bg}width:11%;text-align:center;font-family:${FONT};font-size:7pt;">${esc(m.unidade || 'un')}</td>
         <td style="border:1px solid #1a3e6e;padding:3px 5px;${bg}width:30%;font-family:${FONT};font-size:7pt;">${esc(m.obs)}</td>
       </tr>`;
   });
@@ -1042,9 +1043,15 @@ async function gerarTermo() {
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'display:grid;grid-template-columns:148.5mm 148.5mm;width:297mm;height:210mm;overflow:hidden;background:#fff;';
   const esq = document.createElement('div');
-  esq.style.cssText = 'border-right:1px dashed #aaa;';
+  // box-sizing:border-box evita que a borda de 1px "estoure" a largura da
+  // coluna do grid (148.5mm), o que deixava a via da esquerda 1px mais
+  // larga que a da direita e causava um desalinhamento sutil entre as duas
+  // vias no PDF gerado (percebido sobretudo no brasão/marca d'água, que é
+  // centralizado por transform e é sensível a essa diferença de largura).
+  esq.style.cssText = 'box-sizing:border-box;border-right:1px dashed #aaa;';
   esq.innerHTML = via;
   const dir = document.createElement('div');
+  dir.style.cssText = 'box-sizing:border-box;';
   dir.innerHTML = via;
   wrapper.appendChild(esq);
   wrapper.appendChild(dir);
@@ -1055,6 +1062,7 @@ async function gerarTermo() {
   sandbox.appendChild(wrapper);
   await new Promise(r => setTimeout(r, 80));
 
+try {
 const pdfBlob = await html2pdf().set({
   margin: 0, filename: nomeArq,
   image: { type: 'jpeg', quality: 0.98 },
@@ -1211,9 +1219,13 @@ function montarDocumento(unidadeNome, dataFmt, lista) {
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'display:grid;grid-template-columns:148.5mm 148.5mm;width:297mm;height:210mm;overflow:hidden;background:#fff;';
   const esq = document.createElement('div');
-  esq.style.cssText = 'border-right:1px dashed #aaa;';
+  // box-sizing:border-box evita que a borda de 1px "estoure" a largura da
+  // coluna do grid, mantendo as duas vias com exatamente a mesma largura
+  // interna e eliminando o leve desalinhamento entre elas no PDF gerado.
+  esq.style.cssText = 'box-sizing:border-box;border-right:1px dashed #aaa;';
   esq.innerHTML = via;
   const dir = document.createElement('div');
+  dir.style.cssText = 'box-sizing:border-box;';
   dir.innerHTML = via;
   wrapper.appendChild(esq);
   wrapper.appendChild(dir);

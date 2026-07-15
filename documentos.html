@@ -10,32 +10,7 @@
 </head>
 <body>
 
-<header class="topbar">
-  <div class="topbar__left">
-    <a class="brand" href="/portal.html"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></a>
-    <nav class="nav">
-      <div class="nav__item">
-        <button class="nav__link" id="ferramentasTrigger" type="button">
-          <span class="label-text">FERRAMENTAS</span><span class="nav__caret"></span>
-        </button>
-        <div class="submenu" id="ferramentasMenu"></div>
-      </div>
-      <div class="nav__item">
-        <a class="nav__link is-open" href="/documentos.html" style="background:rgba(255,255,255,0.14)"><span class="label-text">DOCUMENTOS ÚTEIS</span></a>
-      </div>
-      <div class="nav__item">
-        <a class="nav__link" href="/manuais.html"><span class="label-text">MANUAIS DE USO</span></a>
-      </div>
-      <div class="nav__item">
-        <a class="nav__link" id="adminLink" href="/admin.html" style="display:none"><span class="label-text">ADMINISTRAÇÃO</span></a>
-      </div>
-    </nav>
-  </div>
-  <div class="topbar__right">
-    <div class="user-chip" id="userChip"></div>
-    <button class="btn btn--ghost-light btn--sm" id="logoutBtn" type="button">Sair</button>
-  </div>
-</header>
+<div id="app-topbar"></div>
 
 <main class="page">
   <div class="page__header">
@@ -52,7 +27,7 @@
 <script src="/js/common.js"></script>
 <script>
   (async () => {
-    const user = await initPortalChrome();
+    const user = await initPortalChrome('documentos');
     if (!user) return;
 
     const area = document.getElementById('listArea');

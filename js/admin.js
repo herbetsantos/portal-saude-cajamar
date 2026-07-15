@@ -367,7 +367,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
 // ---------- Inicialização ----------
 
 (async () => {
-  const user = await initPortalChrome();
+  const user = await initPortalChrome('admin');
   if (!user) return;
 
   if (user.role !== 'admin') {

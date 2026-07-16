@@ -1008,6 +1008,73 @@ function montarViaTermo(unidadeNome, dataFmt, itens) {
 </div>`;
 }
 /* ──────────────────────────────────────────────────────
+   RENDERIZAÇÃO/COMPOSIÇÃO DO PDF
+   Estratégia: renderizar a via UMA ÚNICA VEZ como imagem
+   e colar essa mesma imagem duas vezes no PDF, usando
+   coordenadas milimétricas exatas do jsPDF. Isso elimina
+   o desalinhamento entre as vias esquerda/direita que
+   ocorria quando cada via era um elemento DOM separado
+   rasterizado individualmente pelo html2canvas (pequenas
+   diferenças de antialiasing/subpixel entre as duas
+   renderizações faziam as vias saírem "descasadas" no
+   PDF final, mesmo com larguras CSS idênticas).
+────────────────────────────────────────────────────── */
+async function renderViaComoImagem(viaHtml) {
+  const via = document.createElement('div');
+  via.style.cssText = 'width:148.5mm;height:210mm;background:#fff;box-sizing:border-box;overflow:hidden;';
+  via.innerHTML = viaHtml;
+
+  const sandbox = document.createElement('div');
+  sandbox.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
+  sandbox.appendChild(via);
+  document.body.appendChild(sandbox);
+
+  // Garante que a fonte Montserrat já esteja carregada antes de
+  // capturar, evitando medições de texto inconsistentes.
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch (e) {}
+  }
+  await new Promise(r => setTimeout(r, 60));
+
+  const canvas = await html2canvas(via, {
+    scale: 3,
+    useCORS: true,
+    logging: false,
+    backgroundColor: '#ffffff'
+  });
+
+  document.body.removeChild(sandbox);
+  return canvas.toDataURL('image/jpeg', 0.98);
+}
+
+function novoPdfPaisagem() {
+  const { jsPDF } = window.jspdf;
+  return new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+}
+
+/* Desenha manualmente uma linha tracejada (sem depender de
+   setLineDashPattern, que varia entre versões do jsPDF) para
+   marcar o local do corte entre as duas vias A5. */
+function linhaTracejadaVertical(pdf, x, y1, y2, tracoMm = 2, vaoMm = 1.5) {
+  pdf.setDrawColor(180, 180, 180);
+  pdf.setLineWidth(0.1);
+  let y = y1;
+  while (y < y2) {
+    const fim = Math.min(y + tracoMm, y2);
+    pdf.line(x, y, x, fim);
+    y += tracoMm + vaoMm;
+  }
+}
+
+/* Cola a MESMA imagem duas vezes, uma em cada metade A5 da
+   página A4 paisagem — garante vias idênticas e alinhadas. */
+function inserirDuasVias(pdf, imgData) {
+  pdf.addImage(imgData, 'JPEG', 0, 0, 148.5, 210);
+  pdf.addImage(imgData, 'JPEG', 148.5, 0, 148.5, 210);
+  linhaTracejadaVertical(pdf, 148.5, 0, 210);
+}
+
+/* ──────────────────────────────────────────────────────
    GERAR PDF DO TERMO
 ────────────────────────────────────────────────────── */
 async function gerarTermo() {
@@ -1038,38 +1105,11 @@ async function gerarTermo() {
 
   const via = montarViaTermo(nomeCompleto, dataFmt, validos);
 
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'display:grid;grid-template-columns:148.5mm 148.5mm;width:297mm;height:210mm;overflow:hidden;background:#fff;';
-  const esq = document.createElement('div');
-  // box-sizing:border-box evita que a borda de 1px "estoure" a largura da
-  // coluna do grid (148.5mm), o que deixava a via da esquerda 1px mais
-  // larga que a da direita e causava um desalinhamento sutil entre as duas
-  // vias no PDF gerado (percebido sobretudo no brasão/marca d'água, que é
-  // centralizado por transform e é sensível a essa diferença de largura).
-  esq.style.cssText = 'box-sizing:border-box;border-right:1px dashed #aaa;';
-  esq.innerHTML = via;
-  const dir = document.createElement('div');
-  dir.style.cssText = 'box-sizing:border-box;';
-  dir.innerHTML = via;
-  wrapper.appendChild(esq);
-  wrapper.appendChild(dir);
-
-  const sandbox = document.createElement('div');
-  sandbox.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
-  document.body.appendChild(sandbox);
-  sandbox.appendChild(wrapper);
-  await new Promise(r => setTimeout(r, 80));
-
-try {
-const pdfBlob = await html2pdf().set({
-  margin: 0, filename: nomeArq,
-  image: { type: 'jpeg', quality: 0.98 },
-  html2canvas: {
-    scale: 2, useCORS: true, logging: false,
-    windowWidth: 1123, windowHeight: 794
-  },
-  jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-}).from(wrapper).outputPdf('blob');
+  try {
+    const imgData = await renderViaComoImagem(via);
+    const pdf = novoPdfPaisagem();
+    inserirDuasVias(pdf, imgData);
+    const pdfBlob = pdf.output('blob');
 
     const url  = URL.createObjectURL(pdfBlob);
     const dlEl = document.getElementById('downloads-lista-termo');
@@ -1091,7 +1131,6 @@ const pdfBlob = await html2pdf().set({
     err('Erro ao gerar PDF: ' + e.message);
   }
 
-  document.body.removeChild(sandbox);
   btn.disabled = false;
   btn.textContent = '🖨 Gerar PDF do Termo';
 }
@@ -1210,25 +1249,6 @@ function montarVia(unidadeNome, dataFmt, lista) {
 </div>`;
 }
 
-function montarDocumento(unidadeNome, dataFmt, lista) {
-  const via = montarVia(unidadeNome, dataFmt, lista);
-  // Retorna elemento DOM para o html2pdf
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'display:grid;grid-template-columns:148.5mm 148.5mm;width:297mm;height:210mm;overflow:hidden;background:#fff;';
-  const esq = document.createElement('div');
-  // box-sizing:border-box evita que a borda de 1px "estoure" a largura da
-  // coluna do grid, mantendo as duas vias com exatamente a mesma largura
-  // interna e eliminando o leve desalinhamento entre elas no PDF gerado.
-  esq.style.cssText = 'box-sizing:border-box;border-right:1px dashed #aaa;';
-  esq.innerHTML = via;
-  const dir = document.createElement('div');
-  dir.style.cssText = 'box-sizing:border-box;';
-  dir.innerHTML = via;
-  wrapper.appendChild(esq);
-  wrapper.appendChild(dir);
-  return wrapper;
-}
-
 /* ──────────────────────────────────────────────────────
    GERAÇÃO — agrupa por unidade e cria um arquivo por grupo
 ────────────────────────────────────────────────────── */
@@ -1258,19 +1278,6 @@ async function gerarTodos() {
   btn.disabled = true;
   btn.textContent = '⏳ Gerando PDFs...';
 
-const opt = {
-  margin:      0,
-  filename:    'guia.pdf',
-  image:       { type: 'jpeg', quality: 0.98 },
-  html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1123, windowHeight: 794 },
-  jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' }
-};
-
-  // Contêiner oculto para renderizar
-  const sandbox = document.createElement('div');
-  sandbox.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
-  document.body.appendChild(sandbox);
-
   for (const sigla of siglas) {
     const unidade      = unidades.find(u => u.sigla === sigla);
     const nomeCompleto = unidade ? unidade.nome : sigla;
@@ -1279,18 +1286,13 @@ const opt = {
 
     btn.textContent = `⏳ Gerando: ${nomeCompleto}…`;
 
-    const elem = montarDocumento(nomeCompleto, dataFmt, pacs);
-    sandbox.innerHTML = '';
-    sandbox.appendChild(elem);
-
-    // Aguarda render
-    await new Promise(r => setTimeout(r, 80));
+    const via = montarVia(nomeCompleto, dataFmt, pacs);
 
     try {
-      const pdfBlob = await html2pdf()
-        .set({ ...opt, filename: nomeArq })
-        .from(elem)
-        .outputPdf('blob');
+      const imgData = await renderViaComoImagem(via);
+      const pdf = novoPdfPaisagem();
+      inserirDuasVias(pdf, imgData);
+      const pdfBlob = pdf.output('blob');
 
       const url = URL.createObjectURL(pdfBlob);
 
@@ -1308,7 +1310,6 @@ const opt = {
     }
   }
 
-  document.body.removeChild(sandbox);
   btn.disabled = false;
   btn.textContent = '🖨 Gerar PDFs por Unidade';
 
@@ -1345,58 +1346,46 @@ async function gerarUnificado() {
   btn.disabled = true;
   btn.textContent = '⏳ Montando PDF único...';
 
-  /* Contêiner com uma "página" de 297×210mm por unidade,
-     empilhadas verticalmente com quebra de página forçada
-     entre elas. */
-  const container = document.createElement('div');
-  container.style.cssText = 'width:297mm;';
-
-  siglas.forEach((sigla, idx) => {
-    const unidade      = unidades.find(u => u.sigla === sigla);
-    const nomeCompleto = unidade ? unidade.nome : sigla;
-    const pacs         = grupos[sigla];
-
-    const pagina = montarDocumento(nomeCompleto, dataFmt, pacs);
-    pagina.style.position = 'relative';
-    if (idx < siglas.length - 1) {
-      pagina.style.pageBreakAfter = 'always';
-      pagina.style.breakAfter = 'page';
-    }
-
-    /* Etiqueta discreta no canto de cada página, para achar
-       rapidamente a guia de cada unidade dentro do PDF */
-    const etiqueta = document.createElement('div');
-    etiqueta.style.cssText =
-      'position:absolute;top:2mm;right:5mm;z-index:2;' +
-      'font-size:7pt;color:#8a94a8;font-family:Montserrat,Arial,sans-serif;';
-    etiqueta.textContent = `Guia ${idx + 1} de ${siglas.length} — ${nomeCompleto}`;
-    pagina.appendChild(etiqueta);
-
-    container.appendChild(pagina);
-  });
-
-  const sandbox = document.createElement('div');
-  sandbox.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
-  sandbox.appendChild(container);
-  document.body.appendChild(sandbox);
-
-  await new Promise(r => setTimeout(r, 120));
-
   const nomeArq = `Guias_Unificado_${(dataVal || '').replace(/-/g, '')}.pdf`;
 
   try {
-    const pdfBlob = await html2pdf()
-      .set({
-        margin:      0,
-        filename:    nomeArq,
-        image:       { type: 'jpeg', quality: 0.98 },
-html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1123, windowHeight: container.scrollHeight },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak:   { mode: ['css', 'legacy'] }
-      })
-      .from(container)
-      .outputPdf('blob');
+    // Cada guia é renderizada isoladamente como imagem e colada em
+    // sua própria página do PDF (uma página por unidade, cada uma
+    // com as duas vias A5 idênticas lado a lado). Evita depender de
+    // quebra de página via CSS sobre um contêiner gigante renderizado
+    // de uma vez só — abordagem que era frágil e podia gerar páginas
+    // cortadas, em branco ou desalinhadas.
+    let pdf = null;
 
+    for (let idx = 0; idx < siglas.length; idx++) {
+      const sigla        = siglas[idx];
+      const unidade      = unidades.find(u => u.sigla === sigla);
+      const nomeCompleto = unidade ? unidade.nome : sigla;
+      const pacs         = grupos[sigla];
+
+      btn.textContent = `⏳ Montando: ${nomeCompleto}…`;
+
+      const via     = montarVia(nomeCompleto, dataFmt, pacs);
+      const imgData = await renderViaComoImagem(via);
+
+      if (!pdf) {
+        pdf = novoPdfPaisagem();
+      } else {
+        pdf.addPage('a4', 'landscape');
+      }
+      inserirDuasVias(pdf, imgData);
+
+      // Etiqueta discreta no canto da página, desenhada como texto
+      // vetorial (sempre perfeitamente posicionada, sem depender de
+      // captura de imagem), para achar rapidamente a guia de cada
+      // unidade dentro do PDF.
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(7);
+      pdf.setTextColor(138, 148, 168);
+      pdf.text(`Guia ${idx + 1} de ${siglas.length} — ${nomeCompleto}`, 292, 5, { align: 'right' });
+    }
+
+    const pdfBlob = pdf.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     const listaEl = document.getElementById('downloads-lista');
     const item = document.createElement('div');
@@ -1415,7 +1404,6 @@ html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1123, windo
     showStatus('erro', `Erro ao gerar o PDF único: ${e.message}`);
   }
 
-  document.body.removeChild(sandbox);
   btn.disabled = false;
   btn.textContent = '📎 Baixar PDF Único (todas as guias)';
 }

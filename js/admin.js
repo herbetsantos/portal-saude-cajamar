@@ -209,6 +209,7 @@ async function loadUsersTable() {
             <td>${u.active ? '<span class="badge badge--user">Ativo</span>' : '<span class="badge badge--inactive">Inativo</span>'}</td>
             <td class="row-actions">
               <button class="btn btn--outline btn--sm" data-edit-user="${u.id}">Editar</button>
+              <button class="btn btn--outline btn--sm" data-unidades-user="${u.id}">Unidades (Receituário)</button>
               <button class="btn btn--danger btn--sm" data-delete-user="${u.id}">Excluir</button>
             </td>
           </tr>
@@ -224,6 +225,76 @@ async function loadUsersTable() {
   wrap.querySelectorAll('[data-delete-user]').forEach((btn) => {
     btn.addEventListener('click', () => confirmDeleteUser(btn.dataset.deleteUser));
   });
+  wrap.querySelectorAll('[data-unidades-user]').forEach((btn) => {
+    const u = users.find((x) => String(x.id) === btn.dataset.unidadesUser);
+    btn.addEventListener('click', () => openUnidadesModal(u));
+  });
+}
+
+// ---------- Unidades do Receituário por usuário ----------
+
+async function openUnidadesModal(u) {
+  openModal(`
+    <h3>Unidades do Receituário</h3>
+    <p class="muted">${escapeHtml(u.name)} (${escapeHtml(u.username)})</p>
+    <div id="unidadesMsg" class="form-msg"></div>
+    <div id="unidadesList" class="skeleton-loading">Carregando…</div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelUnidades" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveUnidades" type="button" style="display:none">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelUnidades').addEventListener('click', closeModal);
+
+  const listEl = document.getElementById('unidadesList');
+  const saveBtn = document.getElementById('saveUnidades');
+  const msgEl = document.getElementById('unidadesMsg');
+
+  try {
+    const res = await fetch(`/api/users/${u.id}/unidades`, { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao carregar unidades.');
+
+    if (data.role === 'admin') {
+      listEl.innerHTML = `<p class="muted">Este usuário é administrador e já enxerga automaticamente <strong>todas</strong> as unidades. Não é necessário selecionar nada aqui.</p>`;
+      saveBtn.style.display = 'none';
+      return;
+    }
+
+    listEl.innerHTML = `
+      <div class="checkbox-list">
+        ${data.unidades.map((un) => `
+          <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+            <input type="checkbox" value="${escapeAttr(un.code)}" ${un.atribuida ? 'checked' : ''} style="width:auto">
+            ${escapeHtml(un.nome)}
+          </label>
+        `).join('')}
+      </div>
+      <p class="muted" style="margin-top:8px">Marque as unidades que ${escapeHtml(u.name)} poderá selecionar ao emitir receitas.</p>
+    `;
+    saveBtn.style.display = '';
+    saveBtn.addEventListener('click', async () => {
+      const codigos = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map((c) => c.value);
+      try {
+        const putRes = await fetch(`/api/users/${u.id}/unidades`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ unidades: codigos }),
+        });
+        const putData = await putRes.json();
+        if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
+        closeModal();
+      } catch (err) {
+        msgEl.className = 'form-msg is-error';
+        msgEl.textContent = err.message;
+      }
+    });
+  } catch (err) {
+    listEl.innerHTML = '';
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+  }
 }
 
 function openEditUserModal(u) {

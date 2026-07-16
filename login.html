@@ -38,9 +38,15 @@
     const msg = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
 
-    // Se já estiver logado, vai direto pro portal.
+    // Para onde ir depois do login (ex.: /receituario/?unidade=polvilho).
+    // Só aceitamos caminhos internos (começando com "/"), nunca URLs externas.
+    const params = new URLSearchParams(window.location.search);
+    const nextParam = params.get('next');
+    const nextUrl = nextParam && nextParam.startsWith('/') ? nextParam : '/portal.html';
+
+    // Se já estiver logado, vai direto pro destino.
     fetch('/api/me', { credentials: 'same-origin' }).then((r) => {
-      if (r.ok) window.location.href = '/portal.html';
+      if (r.ok) window.location.href = nextUrl;
     });
 
     form.addEventListener('submit', async (e) => {
@@ -62,7 +68,7 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Não foi possível entrar.');
-        window.location.href = '/portal.html';
+        window.location.href = nextUrl;
       } catch (err) {
         msg.className = 'form-msg is-error';
         msg.textContent = err.message;

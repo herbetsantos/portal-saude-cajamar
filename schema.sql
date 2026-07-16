@@ -1,6 +1,7 @@
 -- Portal Saúde Cajamar — schema do banco D1
 -- Rode com: wrangler d1 execute portal-saude-db --file=./schema.sql
 
+DROP TABLE IF EXISTS user_unidades;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS links;
 DROP TABLE IF EXISTS users;
@@ -33,6 +34,18 @@ CREATE TABLE links (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Permissões de acesso ao Receituário: quais unidades (postos/UBS) cada
+-- usuário do tipo 'user' pode ver/emitir receitas. Administradores (role='admin')
+-- enxergam automaticamente TODAS as unidades e não precisam de linhas aqui.
+-- O código da unidade (unidade_code) é o mesmo usado no <select id="unidade">
+-- do receituário (ex.: 'polvilho', 'ponunduva', 'upa', etc.).
+CREATE TABLE user_unidades (
+  user_id INTEGER NOT NULL,
+  unidade_code TEXT NOT NULL,
+  PRIMARY KEY (user_id, unidade_code),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Usuário administrador inicial
 -- login: admin   senha: Cajamar@2026  (ALTERE assim que fizer o primeiro acesso, em Administração > Usuários)
 -- hash gerado com PBKDF2-SHA256 / 100000 iterações (ver /functions/api/_utils.js)
@@ -42,5 +55,5 @@ INSERT INTO users (username, name, password_hash, salt, role) VALUES
 -- Itens iniciais do menu Ferramentas
 INSERT INTO links (category, title, url, sort_order) VALUES
 ('ferramenta', 'Malotes e Remessas', 'https://exemplo.cajamar.sp.gov.br/malotes', 1),
-('ferramenta', 'Prescrições', 'https://exemplo.cajamar.sp.gov.br/prescricoes', 2),
+('ferramenta', 'Prescrições', '/receituario/', 2),
 ('ferramenta', 'FacilitaWhats', 'https://exemplo.cajamar.sp.gov.br/facilitawhats', 3);

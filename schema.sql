@@ -56,4 +56,4 @@ INSERT INTO users (username, name, password_hash, salt, role) VALUES
 INSERT INTO links (category, title, url, sort_order) VALUES
 ('ferramenta', 'Malotes e Remessas', 'https://apoioapscajamar.pages.dev/guiasmalotes', 1),
 ('ferramenta', 'Prescrições', '/receituario/', 2),
-('ferramenta', 'FacilitaWhats', 'https://https://apoioapscajamar.pages.dev/facilitawhats', 3);
+('ferramenta', 'FacilitaWhats', 'https://apoioapscajamar.pages.dev/facilitawhats', 3);

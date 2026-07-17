@@ -6,8 +6,11 @@
 const TOPBAR_HTML = `
 <header class="topbar">
   <div class="topbar__left">
+    <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Abrir menu" aria-expanded="false">
+      <span class="hamburger-icon"></span>
+    </button>
     <a class="brand" href="/portal.html"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></a>
-    <nav class="nav">
+    <nav class="nav" id="mainNav">
       <div class="nav__item">
         <button class="nav__link" id="ferramentasTrigger" type="button">
           <span class="label-text">FERRAMENTAS</span><span class="nav__caret"></span>
@@ -22,6 +25,10 @@ const TOPBAR_HTML = `
       </div>
       <div class="nav__item">
         <a class="nav__link" data-nav="admin" id="adminLink" href="/admin.html" style="display:none"><span class="label-text">ADMINISTRAÇÃO</span></a>
+      </div>
+      <div class="nav__mobile-foot">
+        <div class="user-chip" id="userChipMobile"></div>
+        <button class="btn btn--outline btn--sm" id="logoutBtnMobile" type="button">Sair</button>
       </div>
     </nav>
   </div>
@@ -71,22 +78,57 @@ function initials(name) {
 }
 
 function renderTopbarUser(user) {
-  const chip = document.getElementById('userChip');
-  if (!chip) return;
-  chip.innerHTML = `
+  const chipHtml = `
     <span class="user-chip__avatar">${initials(user.name)}</span>
     <span>${user.name}</span>
   `;
+  const chip = document.getElementById('userChip');
+  if (chip) chip.innerHTML = chipHtml;
+  const chipMobile = document.getElementById('userChipMobile');
+  if (chipMobile) chipMobile.innerHTML = chipHtml;
   const adminLink = document.getElementById('adminLink');
-  if (adminLink) adminLink.style.display = user.role === 'admin' ? 'inline-flex' : 'none';
+  if (adminLink) adminLink.style.display = user.role === 'admin' ? '' : 'none';
 }
 
 function setupLogout() {
-  const btn = document.getElementById('logoutBtn');
-  if (!btn) return;
-  btn.addEventListener('click', async () => {
+  const doLogout = async () => {
     await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
     window.location.href = '/login.html';
+  };
+  const btn = document.getElementById('logoutBtn');
+  if (btn) btn.addEventListener('click', doLogout);
+  const btnMobile = document.getElementById('logoutBtnMobile');
+  if (btnMobile) btnMobile.addEventListener('click', doLogout);
+}
+
+function setupMobileNav() {
+  const hamburger = document.getElementById('hamburgerBtn');
+  const nav = document.getElementById('mainNav');
+  if (!hamburger || !nav) return;
+
+  const closeNav = () => {
+    nav.classList.remove('is-mobile-open');
+    hamburger.classList.remove('is-open');
+    hamburger.setAttribute('aria-expanded', 'false');
+  };
+
+  hamburger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = !nav.classList.contains('is-mobile-open');
+    nav.classList.toggle('is-mobile-open', willOpen);
+    hamburger.classList.toggle('is-open', willOpen);
+    hamburger.setAttribute('aria-expanded', String(willOpen));
+  });
+
+  // Fecha o menu mobile ao navegar para uma página nova (links diretos)
+  // ou ao tocar num item da lista de Ferramentas (abre em nova aba).
+  nav.addEventListener('click', (e) => {
+    if (e.target.closest('a.nav__link, .submenu__link')) closeNav();
+  });
+
+  // Fecha o menu mobile ao clicar fora dele.
+  document.addEventListener('click', (e) => {
+    if (!nav.contains(e.target) && e.target !== hamburger) closeNav();
   });
 }
 
@@ -132,6 +174,7 @@ async function initPortalChrome(activeKey) {
   if (!user) return null;
   renderTopbarUser(user);
   setupLogout();
+  setupMobileNav();
   setupFerramentasDropdown();
   loadFerramentasMenu();
   return user;

@@ -31,6 +31,8 @@ CREATE TABLE links (
   url TEXT NOT NULL,
   description TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  -- Como o link deve abrir: '_blank' (nova aba) ou '_self' (mesma aba).
+  open_mode TEXT NOT NULL DEFAULT '_blank' CHECK (open_mode IN ('_blank','_self')),
   created_at TEXT DEFAULT (datetime('now'))
 );
 

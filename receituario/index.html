@@ -27,7 +27,8 @@ body{font-family:'Montserrat',Arial,Helvetica,sans-serif;background:#e8e8e8;marg
 .btn-clear{width:100%;margin-top:5px;padding:6px;background:#fff;color:#888;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer}
 
 /* ── FOLHA A4 NA TELA ── */
-.a4{width:210mm;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;flex-direction:row;transform:scale(1.5);transform-origin:top center;margin-bottom:-48mm}
+.a4{width:210mm;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;flex-direction:row;transform:scale(1.5);transform-origin:top center}
+.a4:not(:last-child){margin-bottom:-48mm}
 .via{width:105mm;min-height:148mm;padding:5mm 5mm 4mm;border-right:1px dashed #333;position:relative;display:flex;flex-direction:column;overflow:hidden}
 .via:last-child{border-right:none}
 .via-label{position:absolute;top:5mm;right:5mm;font-size:5.5px;color:#333;letter-spacing:.4px}
@@ -70,7 +71,7 @@ body{font-family:'Montserrat',Arial,Helvetica,sans-serif;background:#e8e8e8;marg
   .measure .logos-bar{min-height:18mm}
 
   /* ── NAVEGAÇÃO ENTRE FOLHAS (somente na tela) ── */
-  .sheets{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;padding-bottom:48mm}
+  .sheets{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
   .pager{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px}
   .pager button{padding:5px 12px;background:#203B90;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px}
   .pager button:disabled{opacity:.4;cursor:default}
@@ -83,11 +84,10 @@ body{font-family:'Montserrat',Arial,Helvetica,sans-serif;background:#e8e8e8;marg
     html, body{width:100%;height:100%}
     body{background:#fff;margin:0;padding:0}
     #app-topbar{display:none!important}
-    .sheets{padding-bottom:0!important}
     .screen-wrapper{display:block;padding-top:0!important}
     .sidebar{display:none!important}
     .preview{padding:0;display:block;position:static;max-height:none;overflow:visible}
-    .a4{width:297mm;height:210mm;box-shadow:none;page-break-after:always;break-after:page;transform:none!important;margin-bottom:0}
+    .a4{width:297mm;height:210mm;box-shadow:none;page-break-after:always;break-after:page;transform:none!important;margin-bottom:0!important}
     .a4:last-of-type{page-break-after:avoid;break-after:avoid}
     .via{width:50%;height:100%;min-height:100%}
     .via-label{display:block}

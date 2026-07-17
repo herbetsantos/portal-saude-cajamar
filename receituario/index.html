@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receita de Controle Especial</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Montserrat',Arial,Helvetica,sans-serif}
+body{font-family:'Montserrat',Arial,Helvetica,sans-serif;background:#e8e8e8;margin:0;padding:0;font-size:12px}
+
+/* ── TELA ── */
+.screen-wrapper{display:flex;min-height:100vh;gap:0;padding-top:100px}
+.sidebar{width:380px;min-width:300px;background:#fff;border-right:1px solid #ccc;padding:14px;overflow-y:auto;height:calc(100vh - 100px);position:sticky;top:100px}
+.preview{flex:1;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:8px;justify-content:flex-start;overflow-y:auto}
+
+.sidebar h1{font-size:13px;font-weight:400;color:#203B90;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;padding-bottom:6px}
+.sec{font-size:11px;font-weight:700;color:#fff;background:#203B90;letter-spacing:.5px;padding:4px 7px;border-radius:4px;margin:10px 0 6px}
+.f{margin-bottom:6px;}
+.f label{display:block;font-size:12px;color:#444;font-weight:500;margin-bottom:12px;text-transform:none}
+.f input,.f textarea,.f select{width:100%;border:1px solid #bbb;border-radius:3px;padding:5px 6px;font-size:12px;font-family:'Montserrat',Arial,sans-serif;color:#111;background:#fafafa}
+.f input:focus,.f textarea:focus,.f select:focus{outline:none;border-color:#203B90}
+.f textarea{resize:vertical;min-height:55px}
+.btn-print{width:100%;margin-top:12px;padding:9px;background:#203B90;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:400;cursor:pointer;letter-spacing:.5px}
+.btn-print:hover{background:#162a66}
+.btn-clear{width:100%;margin-top:5px;padding:6px;background:#fff;color:#888;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer}
+
+/* ── FOLHA A4 NA TELA ── */
+.a4{width:210mm;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;flex-direction:row;transform:scale(1.5);transform-origin:top center;margin-bottom:-48mm}
+.via{width:105mm;min-height:148mm;padding:5mm 5mm 4mm;border-right:1px dashed #333;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.via:last-child{border-right:none}
+.via-label{position:absolute;top:5mm;right:5mm;font-size:5.5px;color:#333;letter-spacing:.4px}
+
+  /* ── CONTEÚDO DA VIA ── */
+  .rec-title{text-align:center;font-size:8px;font-weight:700;color:#203B90;letter-spacing:.8px;margin-bottom:4px;text-transform:uppercase}
+  .bar{background:#203B90;color:#fff;text-align:center;font-size:8px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:3px 0;margin:4px 0 3px;border-radius:4px}
+  .emitente{font-size:8px;color:#111;line-height:1.7;padding:0 1mm}
+  .frow{display:flex;align-items:baseline;gap:2px;padding:2.5px 0;min-height:11px}
+  .fl{font-size:8px;font-weight:400;color:#222;white-space:nowrap;min-width:60px}
+  .fv{font-size:8px;color:#111;flex:1;word-break:break-word}
+  .prescricao{flex:1;color:#111;line-height:1.8;min-height:25mm;box-sizing:border-box;white-space:normal;word-break:break-word;border:.7px solid #203B90;border-radius:4px;background:#fff;margin:3px 1mm 0;padding:3px 5px;font-size:8px}
+  .ass-box{border:.7px solid #203B90;border-radius:4px;padding:3px 4px;margin:3px 1mm 0;font-weight:500}
+  .ass-label{font-size:8px;color:#222;font-weight:500}
+  .ass-val{font-size:8px;color:#111;min-height:10px;margin-top:2px}
+
+  /* ── LOGOS ── */
+  .logos-bar{width:100%;display:flex;justify-content:center}
+  .logo{max-width:90%;height:auto;object-fit:contain}
+
+  /* ── LISTA DE MEDICAMENTOS (SIDEBAR) ── */
+  .med-row{border:1px solid #e0e0e8;border-radius:6px;padding:8px;margin-bottom:8px;background:#fafafe}
+  .med-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .med-num{font-size:11px;font-weight:700;color:#203B90;text-transform:none;letter-spacing:.4px}
+  .med-del{background:#fff;border:1px solid #e0a0a0;color:#c0392b;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:2px 7px}
+  .med-del:hover{background:#fdeaea}
+  .btn-add{width:100%;padding:7px;background:#eef;color:#203B90;border:1px dashed #203B90;border-radius:5px;font-size:12px;cursor:pointer;margin-bottom:6px}
+  .btn-add:hover{background:#e2e2fb}
+
+  /* ── MEDICAMENTOS NA VIA (PREVIEW/IMPRESSÃO) ── */
+  .med{margin:2px 0}
+  .med-nome{font-weight:700}
+.med-linha{padding-left:9px;line-height:1.2;padding-top:0px;padding-bottom:0px}
+
+  /* ── MEDIDOR DE PAGINAÇÃO (oculto, mede no tamanho de impressão) ── */
+  .measure{position:fixed;left:-99999px;top:0;visibility:hidden;display:block}
+  .measure .rec-title,.measure .bar,.measure .emitente,
+  .measure .fl,.measure .fv,.measure .prescricao,
+  .measure .ass-label,.measure .ass-val{font-size:12px}
+  .measure .logos-bar{min-height:18mm}
+
+  /* ── NAVEGAÇÃO ENTRE FOLHAS (somente na tela) ── */
+  .sheets{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+  .pager{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px}
+  .pager button{padding:5px 12px;background:#203B90;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px}
+  .pager button:disabled{opacity:.4;cursor:default}
+  .pager-info{font-size:12px;color:#444;font-weight:600}
+  .a4--hide{display:none}
+
+  /* ── PRINT ── */
+  @media print{
+    @page{size:A4 landscape;margin:0}
+    html, body{width:100%;height:100%}
+    body{background:#fff;margin:0;padding:0}
+    .screen-wrapper{display:block;padding-top:0!important}
+    .sidebar{display:none!important}
+    .preview{padding:0;display:block}
+    .a4{width:297mm;height:210mm;box-shadow:none;page-break-after:always;break-after:page;transform:none!important;margin-bottom:0}
+    .a4:last-of-type{page-break-after:avoid;break-after:avoid}
+    .via{width:50%;height:100%;min-height:100%}
+    .via-label{display:block}
+    .pager{display:none!important}
+    .a4--hide{display:flex!important}
+    .rec-title{font-size:12px!important}
+    .bar{font-size:12px!important}
+    .emitente{font-size:12px!important}
+    .fl{font-size:12px!important}
+    .fv{font-size:12px!important}
+    .prescricao{font-size:12px!important}
+    .ass-label{font-size:12px!important}
+    .ass-val{font-size:12px!important}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div id="app-topbar"></div>
+
+<div class="screen-wrapper">
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <h1>Receita Controle Especial</h1>
+
+    <select id="unidade" style="display:none">
+        <option value="upa">UPA 24h Vereador Luiz dos Santos Faria</option>
+        <option value="policlinica">Policlínica Municipal de Cajamar</option>
+        <option value="cer2">Centro Especializado em Reabilitação CER II</option>
+        <option value="portal">ESF Carlos dos Santos</option>
+        <option value="km43">Posto de Saúde Nadília de Oliveira Santos</option>
+        <option value="beloplanalto">PSF Belo Planalto</option>
+        <option value="marialuiza">PSF Dra. Maria de Lourdes Mendonça Bravo</option>
+        <option value="guaturinho">PSF Edivaldo Soares Massagardi</option>
+        <option value="parquesaoroberto">UBS Enf. Leontina Martins França</option>
+        <option value="ponunduva">USF Maria Aparecida Missé</option>
+        <option value="cajamarcento">USF Vereador Joaquim Alves de Castro</option>
+        <option value="jordanesia">UBS Enfermeiro Carlos Moreira da Silva</option>
+        <option value="polvilho">UBS Dra. Izabel Gratieri</option>
+        <option value="manoelinacio">USF Manoel Inácio da Silva</option>
+        <option value="ceo">Centro de Especialidades Odontológicas</option>
+        <option value="caps">CAPS Cajamar</option>
+        <option value="capsij">CAPS Infanto/Juvenil</option>
+      </select>
+
+    <div class="sec">Paciente</div>
+    <div class="f"><label>Nome completo</label><input id="pac_nome" placeholder="Nome do paciente" oninput="update()"></div>
+    <div class="f"><label>Endereço completo</label><input id="pac_end" placeholder="Endereço" oninput="update()"></div>
+    <div class="f"><label>CPF</label><input id="pac_cpf" placeholder="000.000.000-00" oninput="update()"></div>
+    <div class="f"><label>Passaporte Nº (se estrangeiro)</label><input id="pac_pass" placeholder="Opcional" oninput="update()"></div>
+
+    <div class="sec">Prescrição</div>
+    <div id="meds"></div>
+    <button class="btn-add" type="button" onclick="addMed()">+ Adicionar medicamento</button>
+
+    <div class="sec">Data e Prescritor</div>
+    <div class="f"><label>Data</label><input id="data" type="date" oninput="update()"></div>
+    <div class="f"><label>Identificação do prescritor</label><input id="prescritor" placeholder="Nome, CRM" oninput="update()"></div>
+
+    <div class="sec">Comprador</div>
+    <div class="f"><label>Nome completo</label><input id="cmp_nome" placeholder="Nome do comprador" oninput="update()"></div>
+    <div class="f"><label>CPF</label><input id="cmp_cpf" placeholder="000.000.000-00" oninput="update()"></div>
+    <div class="f"><label>Passaporte Nº (se estrangeiro)</label><input id="cmp_pass" placeholder="Opcional" oninput="update()"></div>
+    <div class="f"><label>Endereço completo</label><input id="cmp_end" placeholder="Endereço" oninput="update()"></div>
+    <div class="f"><label>Cidade (UF)</label><input id="cmp_cidade" placeholder="Ex: Cajamar (SP)" oninput="update()"></div>
+    <div class="f"><label>Telefone</label><input id="cmp_tel" placeholder="(11) 00000-0000" oninput="update()"></div>
+
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir (A4 — 2 vias A5)</button>
+    <button class="btn-clear" onclick="clearForm()">Limpar campos</button>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="preview"></div>
+</div>
+
+<!-- Sugestões para os campos (o profissional pode escolher ou digitar) -->
+<datalist id="dl-dose">
+  <option>1mg</option><option>2mg</option><option>5mg</option><option>10mg</option>
+  <option>20mg</option><option>25mg</option><option>40mg</option><option>50mg</option>
+  <option>100mg</option><option>250mg</option><option>500mg</option><option>750mg</option>
+  <option>1g</option><option>5mg/mL</option><option>10mg/mL</option><option>100mg/mL</option>
+</datalist>
+
+<script>
+const UNIDADES = {
+  policlinica: {
+    nome: "Policlínica Municipal de Cajamar",
+    cnes: "4982037",
+    endereco: "Av. Dr. Antonio João Abdalla, 1500 - Cristais, Cajamar/SP",
+    tel: "(11) 4446-0100"
+  },
+  cer2: {
+    nome: "Centro Especializado em Reabilitação CER II",
+    cnes: "5204887",
+    endereco: "Av. Dr. Antonio João Abdalla, 1500 - Cristais, Cajamar/SP",
+    tel: "(11) 4446-0100"
+  },
+  portal: {
+    nome: "ESF Carlos dos Santos",
+    cnes: "968358",
+    endereco: "Rua das Cravinas, 198 - Portal Ipês III, Cajamar/SP",
+    tel: "(11) 4446-0124"
+  },
+  km43: {
+    nome: "Posto de Saúde Nadília de Oliveira Santos",
+    cnes: "5270006",
+    endereco: "Rua Bela Vista, 1200 - São Benedito, Cajamar/SP",
+    tel: "(11) 4446-0115"
+  },
+  beloplanalto: {
+    nome: "PSF Belo Planalto",
+    cnes: "3672891",
+    endereco: "Rua Nercílio José dos Santos, 58 - Polvilho, Cajamar/SP",
+    tel: "(11) 4446-0112"
+  },
+  marialuiza: {
+    nome: "PSF Dra. Maria de Lourdes Mendonça Bravo",
+    cnes: "2096269",
+    endereco: "Av. Arujá, 208 - Colina Maria Luíza, Cajamar/SP",
+    tel: "(11) 4446-0116"
+  },
+  guaturinho: {
+    nome: "PSF Edivaldo Soares Massagardi",
+    cnes: "7068840",
+    endereco: "Rua Barueri, 198 - Guaturinho, Cajamar/SP",
+    tel: "(11) 4446-0111"
+  },
+  parquesaoroberto: {
+    nome: "UBS Enf. Leontina Martins França",
+    cnes: "2096242",
+    endereco: "Av. Dr. José Luíz Leme Maciel, 179 - Jordanésia, Cajamar/SP",
+    tel: "(11) 4446-0109"
+  },
+  ponunduva: {
+    nome: "USF Maria Aparecida Missé",
+    cnes: "2096226",
+    endereco: "Rua Joaquim Rodrigues Pontes, 203 - Ponunduva, Cajamar/SP",
+    tel: "(11) 4446-0114"
+  },
+  cajamarcento: {
+    nome: "USF Vereador Joaquim Alves de Castro",
+    cnes: "2096161",
+    endereco: "Av. Prof. Walter Ribas de Andrade, 544 - Água Fria, Cajamar/SP",
+    tel: "(11) 4446-0110"
+  },
+  jordanesia: {
+    nome: "UBS Enfermeiro Carlos Moreira da Silva",
+    cnes: "2096234",
+    endereco: "Av. Antônio Cândido Machado, 1769 - Jordanésia, Cajamar/SP",
+    tel: "(11) 4446-0107"
+  },
+  polvilho: {
+    nome: "UBS Dra. Izabel Gratieri",
+    cnes: "2096188",
+    endereco: "Rua Timburi, 121 - Panorama I - Polvilho, Cajamar/SP",
+    tel: "(11) 4446-0108"
+  },
+  manoelinacio: {
+    nome: "USF Manoel Inácio da Silva",
+    cnes: "3437280",
+    endereco: "Av. das Juritis, 385 - Pq. Maria Aparecida, Cajamar/SP",
+    tel: "(11) 4446-0117"
+  },
+  ceo: {
+    nome: "Centro de Especialidades Odontológicas",
+    cnes: "4075773",
+    endereco: "Av. Dr. Antonio João Abdalla, 1500 - 2º andar - Cristais, Cajamar/SP",
+    tel: "(11) 4446-0117"
+  },
+  caps: {
+    nome: "CAPS Cajamar",
+    cnes: "9077618",
+    endereco: "Rua Rita Maria de Jesus, 20 - Polvilho, Cajamar/SP",
+    tel: "(11) 4446-0121"
+  },
+  capsij: {
+    nome: "CAPS Infanto/Juvenil",
+    cnes: "499889",
+    endereco: "Rua das Moréias, 55 - Portal 3 - Polvilho, Cajamar/SP",
+    tel: "(11) 4446-0122"
+  },
+  upa: {
+    nome: "UPA 24h Vereador Luiz dos Santos Faria",
+    cnes: "7068824",
+    endereco: "Rua Alfredo Del'Vigna, 253 - Jordanésia, Cajamar/SP",
+    tel: "(11) 4447-4058"
+  }
+};
+
+function logosHtml(){
+  return `
+    <div class="logos-bar">
+      <img src="data:image/png;base64,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" class="logo">    </div>`;
+}
+
+// ── Medicamentos ──────────────────────────────────────────────
+const FORMAS = ['Comprimido','Comprimido revestido','Cápsula','Drágea',
+  'Solução oral','Suspensão oral','Xarope','Gotas','Pomada','Creme','Gel',
+  'Loção','Injetável','Supositório','Óvulo vaginal','Adesivo transdérmico',
+  'Spray nasal','Aerossol / Inalação','Colírio','Pó para reconstituição','Outro'];
+
+const POSOLOGIAS = ['1x ao dia','2x ao dia','3x ao dia','4x ao dia',
+  'de 6/6 horas','de 8/8 horas','de 12/12 horas','à noite, ao deitar',
+  'em jejum','antes das refeições','após as refeições','se necessário','uso contínuo'];
+
+// Lê os medicamentos preenchidos na barra lateral (apenas linhas com nome)
+function getMeds(){
+  return [...document.querySelectorAll('#meds .med-row')].map(r => {
+    const posSel = r.querySelector('.m-pos-sel').value;
+    const posologia = posSel === '__outra__'
+      ? r.querySelector('.m-pos-livre').value.trim()   // campo livre
+      : posSel.trim();                                 // opção escolhida no menu
+
+    return {
+      nome:  r.querySelector('.m-nome').value.trim(),
+      dose:  r.querySelector('.m-dose').value.trim(),
+      forma: r.querySelector('.m-forma').value.trim(),
+      posologia,
+      fornecimento: (r.querySelector('.m-fornecimento-livre')?.value || '').trim(),
+      duracao: (r.querySelector('.m-duracao-livre')?.value || '').trim(),
+      recomendacoes: (r.querySelector('.m-recomendacoes-livre')?.value || '').trim()
+    };
+  }).filter(m => m.nome);
+}
+
+// HTML de um medicamento na via (numerado, no formato do modelo)
+function medHtml(m, n){
+  const titulo = [m.nome, m.dose].filter(Boolean).join(', ');
+  let linhas = '';
+
+  if(m.forma)        linhas += `<div class="med-linha">${esc(m.forma)}</div>`;
+  if(m.posologia)   linhas += `<div class="med-linha">${esc(m.posologia)}</div>`;
+
+  // Fornecimento/tempo/quantidade
+  if(m.fornecimento) linhas += `<div class="med-linha">Fornecimento: ${esc(m.fornecimento)}</div>`;
+
+  // Duração do tratamento
+  if(m.duracao)      linhas += `<div class="med-linha">Duração do tratamento: ${esc(m.duracao)}</div>`;
+
+  // Recomendações
+  if(m.recomendacoes) linhas += `<div class="med-linha">Recomendações: ${esc(m.recomendacoes)}</div>`;
+
+  return `<div class="med"><div class="med-nome">${n}. ${esc(titulo)}</div>${linhas}</div>`;
+}
+
+// Conteúdo da caixa de prescrição (subconjunto de medicamentos da folha)
+function prescricaoHtml(meds, offset){
+  return meds.map((m, i) => medHtml(m, offset + i + 1)).join('');
+}
+
+// Monta o conteúdo de UMA via, com o subconjunto de medicamentos da folha
+function viaInner(num, meds, offset, pageNo, pageCount){
+  const unidade = UNIDADES[document.getElementById('unidade').value];
+
+  const pNome  = document.getElementById('pac_nome').value;
+  const pEnd   = document.getElementById('pac_end').value;
+  const pCpf   = document.getElementById('pac_cpf').value;
+  const pPass  = document.getElementById('pac_pass').value;
+  const data   = document.getElementById('data').value;
+  const presc2 = document.getElementById('prescritor').value;
+  const cNome  = document.getElementById('cmp_nome').value;
+  const cCpf   = document.getElementById('cmp_cpf').value;
+  const cPass  = document.getElementById('cmp_pass').value;
+  const cEnd   = document.getElementById('cmp_end').value;
+  const cCid   = document.getElementById('cmp_cidade').value;
+  const cTel   = document.getElementById('cmp_tel').value;
+
+  let dataFmt = '___/___/______';
+  if(data){const p = data.split('-'); dataFmt = p[2]+'/'+p[1]+'/'+p[0];}
+
+  let label = num===1 ? '1ª via – Farmácia' : '2ª via – Paciente';
+  if(pageCount > 1) label += ` · Folha ${pageNo}/${pageCount}`;
+
+  return `
+    <span class="via-label">${label}</span>
+    <div class="rec-title">Receita de Controle Especial</div>
+    <div class="bar">Identificação do Emitente</div>
+    <div class="emitente">
+      ${unidade.nome}<br>
+      CNES: ${unidade.cnes}<br>
+      ${unidade.endereco}<br>
+      ${unidade.tel}
+    </div>
+    <div class="bar">Identificação do Paciente</div>
+    ${frow('Nome Completo:', pNome)}
+    ${frow('Endereço Completo:', pEnd)}
+    ${frow('CPF:', pCpf)}
+    ${frow('Passaporte Nº (se estrangeiro):', pPass)}
+    <div class="bar">Prescrição</div>
+    <div class="prescricao">${prescricaoHtml(meds, offset)}</div>
+    <div class="ass-box">
+      <div class="ass-label">DATA: ${dataFmt}</div>
+      <div class="frow" style="margin-top:3px">
+        <span class="ass-label">Identificação e Assinatura do Prescritor:</span>
+        <span class="ass-val" style="flex:1;margin-left:4px">${esc(presc2)}</span>
+      </div>
+    </div>
+    <div class="bar">Identificação do Comprador</div>
+    ${frow('Nome Completo:', cNome)}
+    ${frow('CPF:', cCpf)}
+    ${frow('Passaporte Nº (se estrangeiro):', cPass)}
+    ${frow('Endereço Completo:', cEnd)}
+    ${frow('Cidade (UF):', cCid)}
+    ${frow('Telefone:', cTel)}
+    ${logosHtml()}
+  `;
+}
+
+// ── Paginação automática ──────────────────────────────────────
+// Mede a altura real do conteúdo no tamanho de IMPRESSÃO (via A5, fontes 12px)
+// e distribui os medicamentos em folhas, criando novas quando faltar espaço.
+const PX_PER_MM = 96 / 25.4;            // px por mm a 96dpi
+const VIA_W_MM  = 138.5;                // largura útil da via impressa (148,5mm - margens)
+const VIA_H_MM  = 201;                  // altura útil da via impressa (210mm - margens)
+const SAFETY_MM = 10;                   // folga de segurança
+const MAX_H_PX  = (VIA_H_MM - SAFETY_MM) * PX_PER_MM;
+
+let _measurer = null;
+function measureHeight(meds, offset){
+  if(!_measurer){
+    _measurer = document.createElement('div');
+    _measurer.className = 'measure';
+    _measurer.style.width = (VIA_W_MM * PX_PER_MM) + 'px';
+    document.body.appendChild(_measurer);
+  }
+  _measurer.innerHTML = viaInner(1, meds, offset, 1, 1);
+  return _measurer.scrollHeight;
+}
+
+// Distribui os medicamentos em folhas conforme a altura disponível
+function paginate(meds){
+  if(!meds.length) return [[]];         // uma folha, prescrição vazia
+  const pages = [];
+  let cur = [], offset = 0;
+  for(const med of meds){
+    cur.push(med);
+    if(cur.length > 1 && measureHeight(cur, offset) > MAX_H_PX){
+      const overflow = cur.pop();       // não coube: vai para a próxima folha
+      pages.push(cur);
+      offset += cur.length;
+      cur = [overflow];
+    }
+  }
+  pages.push(cur);
+  return pages;
+}
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Gera uma linha rótulo/valor (com escape) usada nos blocos Paciente e Comprador
+function frow(label, val){
+  return `<div class="frow"><span class="fl">${label}</span><span class="fv">${esc(val)}</span></div>`;
+}
+
+function maskCPF(v){
+  return (v||'').replace(/\D/g,'')
+    .replace(/(\d{3})(\d)/,'$1.$2')
+    .replace(/(\d{3})(\d)/,'$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/,'$1-$2')
+    .substring(0,14);
+}
+
+function maskTel(v){
+  return (v||'').replace(/\D/g,'')
+    .replace(/(\d{2})(\d)/,'($1) $2')
+    .replace(/(\d{5})(\d)/,'$1-$2')
+    .substring(0,15);
+}
+
+let activePage = 0;   // folha exibida na tela (a impressão sempre sai completa)
+
+function update(){
+  // aplica máscaras antes de renderizar
+  const pacCpfEl = document.getElementById('pac_cpf');
+  const cmpCpfEl = document.getElementById('cmp_cpf');
+  const telEl = document.getElementById('cmp_tel');
+
+  if(pacCpfEl) pacCpfEl.value = maskCPF(pacCpfEl.value);
+  if(cmpCpfEl) cmpCpfEl.value = maskCPF(cmpCpfEl.value);
+  if(telEl) telEl.value = maskTel(telEl.value);
+
+  // monta as folhas (cria novas automaticamente se faltar espaço)
+  const pages = paginate(getMeds());
+  activePage = Math.max(0, Math.min(pages.length - 1, activePage));
+
+  let sheets = '', offset = 0;
+  pages.forEach((pageMeds, i) => {
+    sheets += '<div class="a4">'
+            +   `<div class="via">${viaInner(1, pageMeds, offset, i+1, pages.length)}</div>`
+            +   `<div class="via">${viaInner(2, pageMeds, offset, i+1, pages.length)}</div>`
+            + '</div>';
+    offset += pageMeds.length;
+  });
+
+  const pager = pages.length > 1
+    ? '<div class="pager">'
+      + '<button type="button" class="pager-prev" onclick="gotoPage(-1)">◀ Folha anterior</button>'
+      + '<span class="pager-info"></span>'
+      + '<button type="button" class="pager-next" onclick="gotoPage(1)">Próxima folha ▶</button>'
+      + '</div>'
+    : '';
+
+  document.querySelector('.preview').innerHTML = pager + '<div class="sheets">' + sheets + '</div>';
+  applyActive();
+}
+
+// Mostra apenas a folha ativa na tela e atualiza os botões/indicador
+function applyActive(){
+  const sheets = document.querySelectorAll('.preview .a4');
+  const multi = sheets.length > 1;
+  sheets.forEach((s, i) => s.classList.toggle('a4--hide', multi && i !== activePage));
+  const info = document.querySelector('.pager-info');
+  if(info) info.textContent = `Folha ${activePage + 1} de ${sheets.length}`;
+  const prev = document.querySelector('.pager-prev');
+  const next = document.querySelector('.pager-next');
+  if(prev) prev.disabled = activePage === 0;
+  if(next) next.disabled = activePage === sheets.length - 1;
+}
+
+function gotoPage(delta){
+  const total = document.querySelectorAll('.preview .a4').length;
+  activePage = Math.max(0, Math.min(total - 1, activePage + delta));
+  applyActive();
+}
+
+// ── Linhas de medicamento (loop dinâmico na barra lateral) ────
+function formaOptions(){
+  return '<option value="" selected>— selecione —</option>'
+       + FORMAS.map(f => `<option>${f}</option>`).join('');
+}
+
+function posOptions(){
+  return '<option value="" selected>— selecione —</option>'
+       + POSOLOGIAS.map(p => `<option>${p}</option>`).join('')
+       + '<option value="__outra__">Outra (especificar)…</option>';
+}
+
+// Mostra/esconde a caixa livre quando "Outra" é escolhida
+function onPosChange(sel){
+  const livre = sel.parentElement.querySelector('.m-pos-livre');
+  const isOutra = sel.value === '__outra__';
+  livre.style.display = isOutra ? '' : 'none';
+  if(!isOutra) livre.value = '';
+  if(isOutra) livre.focus();
+  update();
+}
+
+function addMed(){
+  const row = document.createElement('div');
+  row.className = 'med-row';
+  row.innerHTML =
+      '<div class="med-row-head">'
+    +   '<span class="med-num"></span>'
+    +   '<button class="med-del" type="button" title="Remover" onclick="removeMed(this)">✕</button>'
+    + '</div>'
+    + '<div class="f"><label>Medicamento</label>'
+    +   '<input class="m-nome" placeholder="Ex: Dipirona" oninput="update()"></div>'
+    + '<div class="f"><label>Dose / concentração</label>'
+    +   '<input class="m-dose" list="dl-dose" placeholder="Ex: 500mg" oninput="update()"></div>'
+    + '<div class="f"><label>Forma farmacêutica</label>'
+    +   '<select class="m-forma" onchange="update()">' + formaOptions() + '</select></div>'
+    + '<div class="f"><label>Posologia</label>'
+    +   '<select class="m-pos-sel" onchange="onPosChange(this)">' + posOptions() + '</select>'
+    +   '<input class="m-pos-livre" placeholder="Descreva a posologia" oninput="update()" style="display:none;margin-top:5px"></div>'
+    + '<div class="f"><label>Fornecimento (tempo de tratamento e/ou quantidade fornecida)</label>'
+    +   '<input class="m-fornecimento-livre" placeholder="Ex: 1 comprimido a cada 6 horas por 2 dias = 9 comprimidos" oninput="update()"></div>'
+    + '<div class="f"><label>Duração do tratamento</label>'
+    +   '<input class="m-duracao-livre" placeholder="Ex: 2 dias / 30 dias / uso contínuo" oninput="update()"></div>'
+    + '<div class="f"><label>Recomendações</label>'
+    +   '<input class="m-recomendacoes-livre" placeholder="Ex: Se dor/febre" oninput="update()"></div>';
+  document.getElementById('meds').appendChild(row);
+  renumberMeds();
+  update();
+}
+
+function removeMed(btn){
+  btn.closest('.med-row').remove();
+  if(!document.querySelector('#meds .med-row')){ addMed(); return; }
+  renumberMeds();
+  update();
+}
+
+function renumberMeds(){
+  document.querySelectorAll('#meds .med-row').forEach((r, i) => {
+    r.querySelector('.med-num').textContent = 'Medicamento ' + (i + 1);
+  });
+}
+
+function clearForm(){
+  ['pac_nome','pac_end','pac_cpf','pac_pass','data','prescritor',
+   'cmp_nome','cmp_cpf','cmp_pass','cmp_end','cmp_cidade','cmp_tel'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('meds').innerHTML = '';
+  addMed();   // recria uma linha de medicamento vazia (já chama update)
+}
+
+addMed();   // inicia com uma linha de medicamento e renderiza
+</script>
+</body>
+</html>

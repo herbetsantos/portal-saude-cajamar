@@ -54,6 +54,6 @@ INSERT INTO users (username, name, password_hash, salt, role) VALUES
 
 -- Itens iniciais do menu Ferramentas
 INSERT INTO links (category, title, url, sort_order) VALUES
-('ferramenta', 'Malotes e Remessas', 'https://exemplo.cajamar.sp.gov.br/malotes', 1),
+('ferramenta', 'Malotes e Remessas', 'https://apoioapscajamar.pages.dev/guiasmalotes', 1),
 ('ferramenta', 'Prescrições', '/receituario/', 2),
-('ferramenta', 'FacilitaWhats', 'https://exemplo.cajamar.sp.gov.br/facilitawhats', 3);
+('ferramenta', 'FacilitaWhats', 'https://https://apoioapscajamar.pages.dev/facilitawhats', 3);

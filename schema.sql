@@ -14,6 +14,9 @@ CREATE TABLE users (
   salt TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin','user')),
   active INTEGER NOT NULL DEFAULT 1,
+  -- Quando 1, o usuário é obrigado a trocar a senha no próximo login (usado
+  -- quando o admin define uma senha temporária, ex.: recuperação de acesso).
+  must_change_password INTEGER NOT NULL DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

@@ -45,8 +45,14 @@
     const nextUrl = nextParam && nextParam.startsWith('/') ? nextParam : '/portal.html';
 
     // Se já estiver logado, vai direto pro destino.
-    fetch('/api/me', { credentials: 'same-origin' }).then((r) => {
-      if (r.ok) window.location.href = nextUrl;
+    fetch('/api/me', { credentials: 'same-origin' }).then(async (r) => {
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.user && data.user.mustChangePassword) {
+        window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
+      } else {
+        window.location.href = nextUrl;
+      }
     });
 
     form.addEventListener('submit', async (e) => {
@@ -68,7 +74,11 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Não foi possível entrar.');
-        window.location.href = nextUrl;
+        if (data.user && data.user.mustChangePassword) {
+          window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
+        } else {
+          window.location.href = nextUrl;
+        }
       } catch (err) {
         msg.className = 'form-msg is-error';
         msg.textContent = err.message;

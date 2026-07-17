@@ -86,7 +86,10 @@
           </div>
           <div class="field">
             <label for="uPassword">Senha provisória</label>
-            <input type="text" id="uPassword" required minlength="8">
+            <div style="display:flex;gap:8px">
+              <input type="text" id="uPassword" required minlength="8" style="flex:1">
+              <button type="button" id="genTempPasswordNewUser" class="btn btn--outline btn--sm" style="white-space:nowrap">Gerar</button>
+            </div>
           </div>
           <div class="field">
             <label for="uRole">Papel</label>
@@ -98,6 +101,7 @@
           <div class="inline-form__actions">
             <button type="submit" class="btn btn--accent btn--sm">Adicionar usuário</button>
           </div>
+          <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0">O usuário será obrigado a trocar essa senha provisória no primeiro login.</p>
           <div id="addUserMsg" class="form-msg" style="grid-column:1/-1"></div>
         </form>
       </section>

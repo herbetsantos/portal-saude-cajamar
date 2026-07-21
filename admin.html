@@ -25,7 +25,8 @@
 
   <div class="admin-shell" id="adminShell" style="display:none">
     <div class="admin-tabs">
-      <button class="admin-tab is-active" data-tab="ferramenta">Ferramentas</button>
+      <button class="admin-tab is-active" data-tab="updates">Atualizações</button>
+      <button class="admin-tab" data-tab="ferramenta">Ferramentas</button>
       <button class="admin-tab" data-tab="documento">Documentos Úteis</button>
       <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
       <button class="admin-tab" data-tab="usuarios">Usuários</button>
@@ -34,8 +35,50 @@
 
     <div class="admin-panel">
 
-      <!-- Ferramentas / Documentos / Manuais compartilham o mesmo template -->
-      <section class="panel-section is-active" data-panel="ferramenta">
+<!-- Atualizações -->
+<section class="panel-section is-active" data-panel="updates">
+  <div class="panel-section__head">
+    <div>
+      <div class="panel-section__title">Atualizações</div>
+      <div class="panel-section__desc">Avisos e novidades exibidos na página inicial do portal.</div>
+    </div>
+  </div>
+  <div id="updatesTableWrap"><div class="skeleton-loading">Carregando…</div></div>
+
+  <form id="addUpdateForm" class="inline-form">
+    <div class="field field--full">
+      <label for="upTitle">Título</label>
+      <input type="text" id="upTitle" required>
+    </div>
+    <div class="field field--full">
+      <label for="upBody">Texto</label>
+      <textarea id="upBody" rows="3" required style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;resize:vertical"></textarea>
+    </div>
+    <div class="field">
+      <label for="upTag">Categoria/tag (opcional)</label>
+      <input type="text" id="upTag" placeholder="Ex.: Sistema, Aviso, Manutenção">
+    </div>
+    <div class="field">
+      <label for="upDate">Data</label>
+      <input type="date" id="upDate">
+    </div>
+    <div class="field">
+      <label for="upLinkUrl">Link/anexo (opcional)</label>
+      <input type="url" id="upLinkUrl" placeholder="https://">
+    </div>
+    <div class="field">
+      <label for="upLinkLabel">Texto do link (opcional)</label>
+      <input type="text" id="upLinkLabel" placeholder="Ex.: Ver anexo">
+    </div>
+    <div class="inline-form__actions">
+      <button type="submit" class="btn btn--accent btn--sm">Publicar atualização</button>
+    </div>
+    <div id="addUpdateMsg" class="form-msg" style="grid-column:1/-1"></div>
+  </form>
+</section>
+
+<!-- Ferramentas / Documentos / Manuais compartilham o mesmo template -->
+<section class="panel-section" data-panel="ferramenta">
         <div class="panel-section__head">
           <div>
             <div class="panel-section__title">Ferramentas</div>

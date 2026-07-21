@@ -4,6 +4,7 @@
 DROP TABLE IF EXISTS user_unidades;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS links;
+DROP TABLE IF EXISTS updates;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
@@ -39,6 +40,22 @@ CREATE TABLE links (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Atualizações/novidades exibidas na home do portal (/portal.html).
+CREATE TABLE updates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  -- Etiqueta livre para categorizar o aviso (ex.: 'Sistema', 'Aviso', 'Manutenção').
+  tag TEXT,
+  -- Link opcional (ex.: anexo, formulário, página externa) associado ao aviso.
+  link_url TEXT,
+  link_label TEXT,
+  -- Data de referência do aviso (não é a data de criação no banco, e sim a
+  -- data que aparece para o usuário — pode ser editada pelo admin).
+  published_at TEXT NOT NULL DEFAULT (date('now')),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Permissões de acesso ao Receituário: quais unidades (postos/UBS) cada
 -- usuário do tipo 'user' pode ver/emitir receitas. Administradores (role='admin')
 -- enxergam automaticamente TODAS as unidades e não precisam de linhas aqui.
@@ -59,6 +76,10 @@ INSERT INTO users (username, name, password_hash, salt, role) VALUES
 
 -- Itens iniciais do menu Ferramentas
 INSERT INTO links (category, title, url, sort_order) VALUES
-('ferramenta', 'Malotes e Remessas', 'https://apoioapscajamar.pages.dev/guiasmalotes', 1),
+('ferramenta', 'Malotes e Remessas', '/guiasmalotes', 1),
 ('ferramenta', 'Prescrições', '/receituario/', 2),
-('ferramenta', 'FacilitaWhats', 'https://apoioapscajamar.pages.dev/facilitawhats', 3);
+('ferramenta', 'FacilitaWhats', '/facilitawhats', 3);
+
+-- Avisos iniciais de exemplo (edite ou exclua em Administração > Atualizações)
+INSERT INTO updates (title, body, tag, published_at) VALUES
+('Bem-vindo(a) ao novo Portal Saúde', 'Esta página agora mostra os avisos e novidades da Secretaria. As ferramentas, documentos e manuais continuam no menu superior.', 'Sistema', date('now'));

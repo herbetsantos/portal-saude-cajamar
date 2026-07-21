@@ -325,6 +325,59 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
 
 /* Lista de documentos/manuais */
 
+/* Lista de documentos/manuais */
+
+.updates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+}
+
+.update-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+
+.update-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.update-card__date {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.update-card__title {
+  font-size: 17px;
+  color: var(--primary-dark);
+  margin-bottom: 6px;
+}
+
+.update-card__body {
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.update-card__link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 13.5px;
+  text-decoration: none;
+}
+
+.update-card__link:hover { text-decoration: underline; }
+
 .doc-list {
   display: flex;
   flex-direction: column;

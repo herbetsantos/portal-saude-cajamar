@@ -29,6 +29,157 @@ function setupTabs() {
   });
 }
 
+// ---------- Atualizações (home) ----------
+
+function fmtUpdateDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return (y && m && d) ? `${d}/${m}/${y}` : iso;
+}
+
+async function loadUpdatesTable() {
+  const wrap = document.getElementById('updatesTableWrap');
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+
+  const res = await fetch('/api/updates', { credentials: 'same-origin' });
+  const data = await res.json();
+  const items = data.updates || [];
+
+  wrap.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Data</th><th>Título</th><th>Tag</th><th></th></tr></thead>
+      <tbody>
+        ${items.length ? items.map((it) => `
+          <tr>
+            <td>${escapeHtml(fmtUpdateDate(it.published_at))}</td>
+            <td>${escapeHtml(it.title)}</td>
+            <td>${it.tag ? `<span class="badge badge--admin">${escapeHtml(it.tag)}</span>` : ''}</td>
+            <td class="row-actions">
+              <button class="btn btn--outline btn--sm" data-edit-update="${it.id}">Editar</button>
+              <button class="btn btn--danger btn--sm" data-delete-update="${it.id}">Excluir</button>
+            </td>
+          </tr>
+        `).join('') : `<tr><td colspan="4" style="color:var(--muted)">Nenhuma atualização publicada.</td></tr>`}
+      </tbody>
+    </table>
+  `;
+
+  wrap.querySelectorAll('[data-delete-update]').forEach((btn) => {
+    btn.addEventListener('click', () => confirmDeleteUpdate(btn.dataset.deleteUpdate));
+  });
+  wrap.querySelectorAll('[data-edit-update]').forEach((btn) => {
+    const item = items.find((i) => String(i.id) === btn.dataset.editUpdate);
+    btn.addEventListener('click', () => openEditUpdateModal(item));
+  });
+}
+
+document.getElementById('addUpdateForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('addUpdateMsg');
+  msgEl.className = 'form-msg';
+  const payload = {
+    title: document.getElementById('upTitle').value.trim(),
+    body: document.getElementById('upBody').value.trim(),
+    tag: document.getElementById('upTag').value.trim(),
+    published_at: document.getElementById('upDate').value,
+    link_url: document.getElementById('upLinkUrl').value.trim(),
+    link_label: document.getElementById('upLinkLabel').value.trim(),
+  };
+  try {
+    const res = await fetch('/api/updates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao publicar atualização.');
+    document.getElementById('addUpdateForm').reset();
+    await loadUpdatesTable();
+  } catch (err) {
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+  }
+});
+
+function openEditUpdateModal(item) {
+  openModal(`
+    <h3>Editar atualização</h3>
+    <div id="editUpdateMsg" class="form-msg"></div>
+    <div class="field">
+      <label>Título</label>
+      <input type="text" id="editUpTitle" value="${escapeAttr(item.title)}">
+    </div>
+    <div class="field">
+      <label>Texto</label>
+      <textarea id="editUpBody" rows="3" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;resize:vertical">${escapeHtml(item.body)}</textarea>
+    </div>
+    <div class="field">
+      <label>Categoria/tag (opcional)</label>
+      <input type="text" id="editUpTag" value="${escapeAttr(item.tag || '')}">
+    </div>
+    <div class="field">
+      <label>Data</label>
+      <input type="date" id="editUpDate" value="${escapeAttr(item.published_at || '')}">
+    </div>
+    <div class="field">
+      <label>Link/anexo (opcional)</label>
+      <input type="url" id="editUpLinkUrl" value="${escapeAttr(item.link_url || '')}">
+    </div>
+    <div class="field">
+      <label>Texto do link (opcional)</label>
+      <input type="text" id="editUpLinkLabel" value="${escapeAttr(item.link_label || '')}">
+    </div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelEditUpdate" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveEditUpdate" type="button">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelEditUpdate').addEventListener('click', closeModal);
+  document.getElementById('saveEditUpdate').addEventListener('click', async () => {
+    const msgEl = document.getElementById('editUpdateMsg');
+    try {
+      const res = await fetch(`/api/updates/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          title: document.getElementById('editUpTitle').value.trim(),
+          body: document.getElementById('editUpBody').value.trim(),
+          tag: document.getElementById('editUpTag').value.trim(),
+          published_at: document.getElementById('editUpDate').value,
+          link_url: document.getElementById('editUpLinkUrl').value.trim(),
+          link_label: document.getElementById('editUpLinkLabel').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
+      closeModal();
+      await loadUpdatesTable();
+    } catch (err) {
+      msgEl.className = 'form-msg is-error';
+      msgEl.textContent = err.message;
+    }
+  });
+}
+
+function confirmDeleteUpdate(id) {
+  openModal(`
+    <h3>Excluir atualização</h3>
+    <p class="muted">Esta ação não pode ser desfeita. Deseja continuar?</p>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelDelete" type="button">Cancelar</button>
+      <button class="btn btn--danger btn--sm" id="confirmDelete" type="button">Excluir</button>
+    </div>
+  `);
+  document.getElementById('cancelDelete').addEventListener('click', closeModal);
+  document.getElementById('confirmDelete').addEventListener('click', async () => {
+    await fetch(`/api/updates/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    closeModal();
+    await loadUpdatesTable();
+  });
+}
+
 // ---------- Links (ferramenta / documento / manual) ----------
 
 async function loadLinksTable(category) {
@@ -448,6 +599,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
 
   document.getElementById('adminShell').style.display = 'flex';
   setupTabs();
+  loadUpdatesTable();
   loadLinksTable('ferramenta');
   loadLinksTable('documento');
   loadLinksTable('manual');

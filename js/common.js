@@ -53,6 +53,18 @@ function renderTopbar(activeKey) {
   }
 }
 
+// Define o favicon da aba do navegador (chamado uma vez, em todas as páginas
+// que carregam este script, já que o <link rel="icon"> não é duplicado no HTML).
+function setFavicon(url) {
+  let link = document.querySelector("link[rel~='icon']");
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = url;
+}
+
 async function requireLogin() {
   try {
     const res = await fetch('/api/me', { credentials: 'same-origin' });
@@ -169,6 +181,7 @@ function escapeHtml(str) {
 function escapeAttr(str) { return escapeHtml(str); }
 
 async function initPortalChrome(activeKey) {
+  setFavicon('/assets/favicon.png');
   renderTopbar(activeKey);
   const user = await requireLogin();
   if (!user) return null;

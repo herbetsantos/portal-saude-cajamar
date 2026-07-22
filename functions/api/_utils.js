@@ -85,8 +85,8 @@ export async function getAuthUser(request, env) {
   const token = getCookie(request, 'session');
   if (!token) return null;
 
-  const row = await env.DB.prepare(
-    `SELECT s.expires_at, u.id, u.username, u.name, u.role, u.active
+const row = await env.DB.prepare(
+    `SELECT s.expires_at, u.id, u.username, u.name, u.role, u.active, u.unidade
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ?`
   )

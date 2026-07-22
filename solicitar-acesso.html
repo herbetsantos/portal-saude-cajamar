@@ -32,3 +32,64 @@
         </div>
         <div class="field">
           <label for="password">Senha</label>
+          <input type="password" id="password" required minlength="8">
+        </div>
+        <div class="field">
+          <label for="confirmPassword">Confirmar senha</label>
+          <input type="password" id="confirmPassword" required minlength="8">
+        </div>
+        <button type="submit" class="btn btn--accent" id="submitBtn">Enviar solicitação</button>
+      </form>
+
+      <div class="login-foot"><a href="/login.html">Já tenho acesso — voltar ao login</a></div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('signupForm');
+    const msg = document.getElementById('formMsg');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'form-msg';
+      msg.textContent = '';
+
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      if (password !== confirmPassword) {
+        msg.className = 'form-msg is-error';
+        msg.textContent = 'As senhas não coincidem.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Enviando…';
+
+      try {
+        const res = await fetch('/api/signup-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('name').value,
+            username: document.getElementById('username').value.trim().toLowerCase(),
+            unidade: document.getElementById('unidade').value,
+            password,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Não foi possível enviar a solicitação.');
+
+        form.style.display = 'none';
+        msg.className = 'form-msg is-ok';
+        msg.textContent = 'Solicitação enviada! Assim que um administrador aprovar, você poderá entrar normalmente com o usuário e senha escolhidos.';
+      } catch (err) {
+        msg.className = 'form-msg is-error';
+        msg.textContent = err.message;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Enviar solicitação';
+      }
+    });
+  </script>
+</body>
+</html>

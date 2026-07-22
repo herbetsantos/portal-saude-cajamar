@@ -1,6 +1,7 @@
 // Lógica da página admin.html
 
 const CATEGORY_LABEL = { ferramenta: 'ferramenta', documento: 'documento', manual: 'manual' };
+let currentUser = null;
 
 function openModal(html) {
   document.getElementById('modalBox').innerHTML = html;
@@ -180,8 +181,91 @@ function confirmDeleteUpdate(id) {
   });
 }
 
-// ---------- Links (ferramenta / documento / manual) ----------
+// ---------- Solicitações de cadastro ----------
 
+async function loadSignupRequestsTable() {
+  const wrap = document.getElementById('signupRequestsWrap');
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+
+  const res = await fetch('/api/signup-requests', { credentials: 'same-origin' });
+  const data = await res.json();
+  const items = data.requests || [];
+
+  const badge = document.getElementById('pendingBadge');
+  if (items.length > 0) {
+    badge.style.display = '';
+    badge.textContent = items.length;
+  } else {
+    badge.style.display = 'none';
+  }
+
+  wrap.innerHTML = items.length ? `
+    <table class="data-table">
+      <thead><tr><th>Data</th><th>Nome</th><th>Usuário</th><th>Unidade</th><th></th></tr></thead>
+      <tbody>
+        ${items.map((it) => `
+          <tr>
+            <td>${escapeHtml(fmtUpdateDate((it.created_at || '').slice(0, 10)))}</td>
+            <td>${escapeHtml(it.name)}</td>
+            <td>${escapeHtml(it.username)}</td>
+            <td>${escapeHtml(it.unidade)}</td>
+            <td class="row-actions">
+              <button class="btn btn--accent btn--sm" data-approve="${it.id}">Aprovar</button>
+              <button class="btn btn--danger btn--sm" data-reject="${it.id}">Rejeitar</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : `<div class="empty-state">Nenhuma solicitação pendente.</div>`;
+
+  wrap.querySelectorAll('[data-approve]').forEach((btn) => {
+    btn.addEventListener('click', () => resolveSignupRequest(btn.dataset.approve, 'approve'));
+  });
+  wrap.querySelectorAll('[data-reject]').forEach((btn) => {
+    btn.addEventListener('click', () => resolveSignupRequest(btn.dataset.reject, 'reject'));
+  });
+}
+
+function resolveSignupRequest(id, action) {
+  if (action === 'reject') {
+    openModal(`
+      <h3>Rejeitar solicitação</h3>
+      <p class="muted">A pessoa não será cadastrada. Deseja continuar?</p>
+      <div class="modal__actions">
+        <button class="btn btn--outline btn--sm" id="cancelReject" type="button">Cancelar</button>
+        <button class="btn btn--danger btn--sm" id="confirmReject" type="button">Rejeitar</button>
+      </div>
+    `);
+    document.getElementById('cancelReject').addEventListener('click', closeModal);
+    document.getElementById('confirmReject').addEventListener('click', async () => {
+      closeModal();
+      await sendSignupResolution(id, 'reject');
+    });
+    return;
+  }
+  sendSignupResolution(id, 'approve');
+}
+
+async function sendSignupResolution(id, action) {
+  try {
+    const res = await fetch(`/api/signup-requests/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ action }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao processar solicitação.');
+    await loadSignupRequestsTable();
+    if (action === 'approve') await loadUsersTable();
+  } catch (err) {
+    openModal(`<h3>Não foi possível concluir</h3><p class="muted">${escapeHtml(err.message)}</p><div class="modal__actions"><button class="btn btn--accent btn--sm" id="okClose" type="button">Entendi</button></div>`);
+    document.getElementById('okClose').addEventListener('click', closeModal);
+  }
+}
+
+// ---------- Links (ferramenta / documento / manual) ----------
 async function loadLinksTable(category) {
   const wrap = document.querySelector(`.table-wrap[data-table="${category}"]`);
   wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
@@ -340,6 +424,15 @@ function confirmDeleteLink(id, category) {
 
 // ---------- Usuários ----------
 
+function roleLabel(role) {
+  if (role === 'super_admin') return 'Super Administrador';
+  if (role === 'admin') return 'Administrador';
+  return 'Usuário';
+}
+function roleBadgeClass(role) {
+  return role === 'user' ? 'badge--user' : 'badge--admin';
+}
+
 async function loadUsersTable() {
   const wrap = document.getElementById('usersTableWrap');
   wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
@@ -347,24 +440,31 @@ async function loadUsersTable() {
   const res = await fetch('/api/users', { credentials: 'same-origin' });
   const data = await res.json();
   const users = data.users || [];
+  const canManageAdmins = currentUser && currentUser.role === 'super_admin';
 
   wrap.innerHTML = `
     <table class="data-table">
-      <thead><tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th>Usuário</th><th>Unidade</th><th>Papel</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        ${users.map((u) => `
+        ${users.map((u) => {
+          const isAdminLevel = u.role === 'admin' || u.role === 'super_admin';
+          const locked = isAdminLevel && !canManageAdmins;
+          return `
           <tr>
             <td>${escapeHtml(u.name)}</td>
             <td>${escapeHtml(u.username)}</td>
-            <td><span class="badge ${u.role === 'admin' ? 'badge--admin' : 'badge--user'}">${u.role === 'admin' ? 'Administrador' : 'Usuário'}</span></td>
+            <td>${escapeHtml(u.unidade || '—')}</td>
+            <td><span class="badge ${roleBadgeClass(u.role)}">${roleLabel(u.role)}</span></td>
             <td>${u.active ? '<span class="badge badge--user">Ativo</span>' : '<span class="badge badge--inactive">Inativo</span>'}</td>
             <td class="row-actions">
-              <button class="btn btn--outline btn--sm" data-edit-user="${u.id}">Editar</button>
-              <button class="btn btn--outline btn--sm" data-unidades-user="${u.id}">Unidades (Receituário)</button>
-              <button class="btn btn--danger btn--sm" data-delete-user="${u.id}">Excluir</button>
+              ${locked ? '<span class="muted" style="font-size:12.5px">Só Super Admin</span>' : `
+                <button class="btn btn--outline btn--sm" data-edit-user="${u.id}">Editar</button>
+                <button class="btn btn--outline btn--sm" data-unidades-user="${u.id}">Unidades (Receituário)</button>
+                <button class="btn btn--danger btn--sm" data-delete-user="${u.id}">Excluir</button>
+              `}
             </td>
           </tr>
-        `).join('')}
+        `;}).join('')}
       </tbody>
     </table>
   `;
@@ -449,6 +549,15 @@ async function openUnidadesModal(u) {
 }
 
 function openEditUserModal(u) {
+  const canManageAdmins = currentUser && currentUser.role === 'super_admin';
+  const roleOptions = canManageAdmins
+    ? `
+      <option value="user" ${u.role === 'user' ? 'selected' : ''}>Usuário</option>
+      <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+      <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>Super Administrador</option>
+    `
+    : `<option value="user" selected>Usuário</option>`;
+
   openModal(`
     <h3>Editar usuário</h3>
     <p class="muted">${escapeHtml(u.username)}</p>
@@ -458,11 +567,15 @@ function openEditUserModal(u) {
       <input type="text" id="editUName" value="${escapeAttr(u.name)}">
     </div>
     <div class="field">
+      <label>Unidade de lotação</label>
+      <input type="text" id="editUUnidade" value="${escapeAttr(u.unidade || '')}">
+    </div>
+    <div class="field">
       <label>Papel</label>
-      <select id="editURole">
-        <option value="user" ${u.role === 'user' ? 'selected' : ''}>Usuário</option>
-        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+      <select id="editURole" ${canManageAdmins ? '' : 'disabled'}>
+        ${roleOptions}
       </select>
+      ${canManageAdmins ? '' : '<p class="muted" style="font-size:12.5px;margin-top:4px">Somente o Super Administrador pode alterar para Administrador.</p>'}
     </div>
     <div class="field">
       <label><input type="checkbox" id="editUActive" ${u.active ? 'checked' : ''} style="width:auto;margin-right:6px"> Usuário ativo</label>
@@ -492,6 +605,7 @@ function openEditUserModal(u) {
         credentials: 'same-origin',
         body: JSON.stringify({
           name: document.getElementById('editUName').value.trim(),
+          unidade: document.getElementById('editUUnidade').value.trim(),
           role: document.getElementById('editURole').value,
           active: document.getElementById('editUActive').checked,
           newPassword: newPassword || undefined,
@@ -543,6 +657,7 @@ document.getElementById('addUserForm').addEventListener('submit', async (e) => {
       body: JSON.stringify({
         name: document.getElementById('uName').value.trim(),
         username: document.getElementById('uUsername').value.trim(),
+        unidade: document.getElementById('uUnidade').value.trim(),
         password: document.getElementById('uPassword').value,
         role: document.getElementById('uRole').value,
       }),
@@ -592,14 +707,21 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
   const user = await initPortalChrome('admin');
   if (!user) return;
 
-  if (user.role !== 'admin') {
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
     document.getElementById('notAdminMsg').style.display = 'block';
     return;
+  }
+
+  currentUser = user;
+
+  if (currentUser.role !== 'super_admin') {
+    document.querySelectorAll('#uRole option[value="admin"], #uRole option[value="super_admin"]').forEach((opt) => opt.remove());
   }
 
   document.getElementById('adminShell').style.display = 'flex';
   setupTabs();
   loadUpdatesTable();
+  loadSignupRequestsTable();
   loadLinksTable('ferramenta');
   loadLinksTable('documento');
   loadLinksTable('manual');

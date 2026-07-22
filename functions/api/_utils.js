@@ -101,6 +101,8 @@ const row = await env.DB.prepare(
   }
 
 return { id: row.id, username: row.username, name: row.name, role: row.role, unidade: row.unidade };
+}
+
 export async function requireAuth(request, env) {
   const user = await getAuthUser(request, env);
   if (!user) return { error: json({ error: 'Não autenticado.' }, 401) };

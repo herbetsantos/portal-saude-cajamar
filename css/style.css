@@ -495,6 +495,22 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
   margin-top: 18px;
 }
 
+.login-foot a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.login-foot a:hover { text-decoration: underline; }
+
+.login-card--wide { max-width: 460px; }
+
+.admin-tab__count {
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
 /* ---------- Admin ---------- */
 
 .admin-shell { display: flex; gap: 28px; align-items: flex-start; }

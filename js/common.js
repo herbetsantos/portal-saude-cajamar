@@ -99,8 +99,7 @@ function renderTopbarUser(user) {
   const chipMobile = document.getElementById('userChipMobile');
   if (chipMobile) chipMobile.innerHTML = chipHtml;
   const adminLink = document.getElementById('adminLink');
-  if (adminLink) adminLink.style.display = user.role === 'admin' ? '' : 'none';
-}
+  if (adminLink) adminLink.style.display = (user.role === 'admin' || user.role === 'super_admin') ? '' : 'none';}
 
 function setupLogout() {
   const doLogout = async () => {

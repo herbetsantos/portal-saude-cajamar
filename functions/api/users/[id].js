@@ -1,11 +1,14 @@
 import { json, requireAdmin, hashPassword, randomHex } from '../_utils.js';
 
 export async function onRequestPut({ request, env, params }) {
-  const { user: admin, error } = await requireAdmin(request, env);
+  const { user: requester, error } = await requireAdmin(request, env);
   if (error) return error;
 
   const id = Number(params.id);
   if (!id) return json({ error: 'ID inválido.' }, 400);
+
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
   let body;
   try {
@@ -14,12 +17,18 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const { name, role, active, newPassword } = body;
+  const { name, role, active, newPassword, unidade } = body;
 
-  if (id === admin.id && role && role !== 'admin') {
+  const targetIsAdminLevel = target.role === 'admin' || target.role === 'super_admin';
+  const newRoleIsAdminLevel = role === 'admin' || role === 'super_admin';
+
+  if ((targetIsAdminLevel || newRoleIsAdminLevel) && requester.role !== 'super_admin') {
+    return json({ error: 'Somente o Super Administrador pode gerenciar contas de administrador.' }, 403);
+  }
+  if (id === requester.id && role === 'user') {
     return json({ error: 'Você não pode remover seu próprio acesso de administrador.' }, 400);
   }
-  if (id === admin.id && active === false) {
+  if (id === requester.id && active === false) {
     return json({ error: 'Você não pode desativar seu próprio usuário.' }, 400);
   }
 
@@ -30,13 +39,17 @@ export async function onRequestPut({ request, env, params }) {
     updates.push('name = ?');
     values.push(name.trim());
   }
-  if (role === 'admin' || role === 'user') {
+  if (role === 'admin' || role === 'user' || role === 'super_admin') {
     updates.push('role = ?');
     values.push(role);
   }
   if (typeof active === 'boolean') {
     updates.push('active = ?');
     values.push(active ? 1 : 0);
+  }
+  if (typeof unidade === 'string') {
+    updates.push('unidade = ?');
+    values.push(unidade.trim() || null);
   }
   if (newPassword) {
     if (newPassword.length < 8) return json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' }, 400);
@@ -55,12 +68,19 @@ export async function onRequestPut({ request, env, params }) {
 }
 
 export async function onRequestDelete({ request, env, params }) {
-  const { user: admin, error } = await requireAdmin(request, env);
+  const { user: requester, error } = await requireAdmin(request, env);
   if (error) return error;
 
   const id = Number(params.id);
   if (!id) return json({ error: 'ID inválido.' }, 400);
-  if (id === admin.id) return json({ error: 'Você não pode excluir o seu próprio usuário.' }, 400);
+  if (id === requester.id) return json({ error: 'Você não pode excluir o seu próprio usuário.' }, 400);
+
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
+
+  if ((target.role === 'admin' || target.role === 'super_admin') && requester.role !== 'super_admin') {
+    return json({ error: 'Somente o Super Administrador pode excluir contas de administrador.' }, 403);
+  }
 
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();

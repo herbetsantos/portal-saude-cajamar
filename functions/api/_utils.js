@@ -112,6 +112,17 @@ export async function requireAuth(request, env) {
 export async function requireAdmin(request, env) {
   const user = await getAuthUser(request, env);
   if (!user) return { error: json({ error: 'Não autenticado.' }, 401) };
-  if (user.role !== 'admin') return { error: json({ error: 'Acesso restrito ao administrador.' }, 403) };
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
+    return { error: json({ error: 'Acesso restrito ao administrador.' }, 403) };
+  }
+  return { user };
+}
+
+export async function requireSuperAdmin(request, env) {
+  const user = await getAuthUser(request, env);
+  if (!user) return { error: json({ error: 'Não autenticado.' }, 401) };
+  if (user.role !== 'super_admin') {
+    return { error: json({ error: 'Acesso restrito ao Super Administrador.' }, 403) };
+  }
   return { user };
 }

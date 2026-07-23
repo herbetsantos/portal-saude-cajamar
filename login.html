@@ -53,10 +53,13 @@
       const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       const LINE_COLOR = '32,59,143';   // --primary em rgb
-      const CONNECT_DIST = 130;
+      const CONNECT_DIST = 190;
       const REPEL_RADIUS = 150;
       const REPEL_STRENGTH = 46;
       const EASE = 0.08;
+      const MAX_LINE_ALPHA = 0.28;
+      const DOT_ALPHA = 0.35;
+      const DOT_RADIUS = 1.6;
 
       let w = 0, h = 0, dpr = 1;
       let particles = [];
@@ -75,7 +78,7 @@
       }
 
       function initParticles() {
-        const count = Math.max(26, Math.min(70, Math.floor((w * h) / 20000)));
+        const count = Math.max(40, Math.min(100, Math.floor((w * h) / 15000)));
         particles = [];
         for (let i = 0; i < count; i++) {
           particles.push({
@@ -124,7 +127,7 @@
             const dx = ax - bx, dy = ay - by;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < CONNECT_DIST) {
-              const alpha = (1 - dist / CONNECT_DIST) * 0.55;
+              const alpha = (1 - dist / CONNECT_DIST) * MAX_LINE_ALPHA;
               ctx.strokeStyle = `rgba(${LINE_COLOR},${alpha.toFixed(3)})`;
               ctx.lineWidth = 1;
               ctx.beginPath();
@@ -135,6 +138,13 @@
           }
         }
 
+        for (const p of particles) {
+          const x = p.x + p.ox, y = p.y + p.oy;
+          ctx.beginPath();
+          ctx.arc(x, y, DOT_RADIUS, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${LINE_COLOR},${DOT_ALPHA})`;
+          ctx.fill();
+        }
       }
 
       function loop() {

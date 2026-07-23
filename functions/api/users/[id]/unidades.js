@@ -21,8 +21,7 @@ export async function onRequestGet({ request, env, params }) {
 
   return json({
     role: target.role,
-    unidades: UNIDADES.map((u) => ({ ...u, atribuida: target.role === 'admin' || atribuidas.has(u.code) })),
-  });
+    unidades: UNIDADES.map((u) => ({ ...u, atribuida: target.role === 'admin' || target.role === 'super_admin' || atribuidas.has(u.code) })),  });
 }
 
 // PUT: substitui a lista de unidades atribuídas ao usuário

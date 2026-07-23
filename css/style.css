@@ -268,7 +268,7 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 
 .page {
   max-width: 1080px;
-  margin: 50 auto;
+  margin: 30 auto;
   padding: 40px 24px 80px;
 }
 

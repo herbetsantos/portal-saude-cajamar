@@ -588,8 +588,21 @@ table.data-table {
 
 .data-table td.muted-url { color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.row-actions .btn { white-space: nowrap; flex-shrink: 0; }
 
+/* Tabela de usuários tem uma coluna de ações mais larga (3 botões em vez de 2);
+   isso evita que ela "puxe" as outras colunas de forma inconsistente entre linhas. */
+#usersTableWrap table.data-table td:last-child,
+#usersTableWrap table.data-table th:last-child {
+  white-space: nowrap;
+}
 .badge {
   display: inline-flex;
   align-items: center;

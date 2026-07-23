@@ -268,7 +268,7 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 
 .page {
   max-width: 1080px;
-  margin: 30px auto; /* antes: 30 auto (inválido, sem unidade) */
+  margin: 30px auto;
   padding: 40px 24px 80px;
 }
 
@@ -322,8 +322,6 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
 
 .card__title { font-weight: 700; font-size: 15.5px; color: var(--ink); }
 .card__desc { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
-
-/* Lista de documentos/manuais */
 
 /* Lista de documentos/manuais */
 
@@ -630,7 +628,7 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
   border-radius: var(--radius);
   padding: 22px;
   box-sizing: border-box;
-  width: 100%;      /* antes: width: max-content; min-width: 100%; */
+  width: 100%;
 }
 
 .panel-section.is-active { display: block; }
@@ -644,6 +642,14 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
 
 .panel-section__title { font-size: 17px; color: var(--primary-dark); }
 .panel-section__desc { color: var(--muted); font-size: 13.5px; margin-top: 4px; margin-bottom: 18px; }
+
+/* Wrapper de rolagem horizontal para tabelas largas — vale em qualquer
+   largura de tela, não só no mobile, para a tabela nunca vazar do card. */
+.table-wrap, #usersTableWrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 table.data-table {
   width: 100%;
@@ -801,11 +807,7 @@ table.data-table {
 
   .nav__mobile-foot .user-chip { display: flex; color: #fff; }
 
-  /* Tabelas com rolagem horizontal em vez de espremer */
-  .table-wrap, #usersTableWrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  /* Tabela com largura mínima no mobile para rolar em vez de espremer colunas */
   table.data-table { min-width: 560px; }
 
   /* Botões de ação com mais espaço de toque */

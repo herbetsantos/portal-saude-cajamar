@@ -427,6 +427,7 @@ function confirmDeleteLink(id, category) {
 function roleLabel(role) {
   if (role === 'super_admin') return 'Super Administrador';
   if (role === 'admin') return 'Administrador';
+  if (role === 'admin_unidade') return 'Administrador de Unidade';
   return 'Usuário';
 }
 function roleBadgeClass(role) {
@@ -442,12 +443,12 @@ async function loadUsersTable() {
   const users = data.users || [];
   const canManageAdmins = currentUser && currentUser.role === 'super_admin';
 
-  wrap.innerHTML = `
+wrap.innerHTML = `
     <table class="data-table">
       <thead><tr><th>Nome</th><th>Usuário</th><th>Unidade</th><th>Papel</th><th>Status</th><th></th></tr></thead>
       <tbody>
         ${users.map((u) => {
-          const isAdminLevel = u.role === 'admin' || u.role === 'super_admin';
+          const isAdminLevel = u.role !== 'user';
           const locked = isAdminLevel && !canManageAdmins;
           return `
           <tr>
@@ -459,7 +460,8 @@ async function loadUsersTable() {
             <td class="row-actions">
               ${locked ? '<span class="muted" style="font-size:12.5px">Só Super Admin</span>' : `
                 <button class="btn btn--outline btn--sm" data-edit-user="${u.id}">Editar</button>
-                <button class="btn btn--outline btn--sm" data-unidades-user="${u.id}">Unidades (Receituário)</button>
+                ${u.role === 'user' ? `<button class="btn btn--outline btn--sm" data-unidades-user="${u.id}">Unidades (Receituário)</button>` : ''}
+                ${u.role === 'admin_unidade' && canManageAdmins ? `<button class="btn btn--outline btn--sm" data-gestao-user="${u.id}">Unidades que gerencia</button>` : ''}
                 <button class="btn btn--danger btn--sm" data-delete-user="${u.id}">Excluir</button>
               `}
             </td>
@@ -479,6 +481,96 @@ async function loadUsersTable() {
   wrap.querySelectorAll('[data-unidades-user]').forEach((btn) => {
     const u = users.find((x) => String(x.id) === btn.dataset.unidadesUser);
     btn.addEventListener('click', () => openUnidadesModal(u));
+  });
+  wrap.querySelectorAll('[data-gestao-user]').forEach((btn) => {
+    const u = users.find((x) => String(x.id) === btn.dataset.gestaoUser);
+    btn.addEventListener('click', () => openAdminUnidadesModal(u));
+  });
+}  
+
+// ---------- Unidades que um admin_unidade gerencia ----------
+
+async function openAdminUnidadesModal(u) {
+  openModal(`
+    <h3>Unidades que ${escapeHtml(u.name)} gerencia</h3>
+    <p class="muted">${escapeHtml(u.username)} — Administrador de Unidade</p>
+    <div id="adminUnidadesMsg" class="form-msg"></div>
+    <div id="adminUnidadesList" class="skeleton-loading">Carregando…</div>
+    <div class="field" style="margin-top:10px">
+      <label for="novaUnidadeInput">Adicionar outra unidade (se ainda não estiver na lista)</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="novaUnidadeInput" style="flex:1" placeholder="Digite o nome exato da unidade">
+        <button type="button" id="addUnidadeBtn" class="btn btn--outline btn--sm">Adicionar</button>
+      </div>
+    </div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelAdminUnidades" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveAdminUnidades" type="button">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelAdminUnidades').addEventListener('click', closeModal);
+
+  const listEl = document.getElementById('adminUnidadesList');
+  const msgEl = document.getElementById('adminUnidadesMsg');
+
+  const renderList = (todas, atribuidasSet) => {
+    listEl.innerHTML = todas.length ? `
+      <div class="checkbox-list">
+        ${todas.map((un) => `
+          <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+            <input type="checkbox" value="${escapeAttr(un)}" ${atribuidasSet.has(un.toLowerCase()) ? 'checked' : ''} style="width:auto">
+            ${escapeHtml(un)}
+          </label>
+        `).join('')}
+      </div>
+    ` : `<p class="muted">Ainda não há nenhuma unidade cadastrada em nenhum usuário. Use o campo abaixo para adicionar.</p>`;
+  };
+
+  let todasUnidades = [];
+  let atribuidasSet = new Set();
+
+  try {
+    const res = await fetch(`/api/users/${u.id}/admin-unidades`, { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao carregar unidades.');
+    todasUnidades = data.unidades || [];
+    atribuidasSet = new Set((data.atribuidas || []).map((x) => x.toLowerCase()));
+    renderList(todasUnidades, atribuidasSet);
+  } catch (err) {
+    listEl.innerHTML = '';
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+    return;
+  }
+
+  document.getElementById('addUnidadeBtn').addEventListener('click', () => {
+    const input = document.getElementById('novaUnidadeInput');
+    const valor = input.value.trim();
+    if (!valor) return;
+    if (!todasUnidades.some((x) => x.toLowerCase() === valor.toLowerCase())) {
+      todasUnidades.push(valor);
+    }
+    atribuidasSet.add(valor.toLowerCase());
+    renderList(todasUnidades, atribuidasSet);
+    input.value = '';
+  });
+
+  document.getElementById('saveAdminUnidades').addEventListener('click', async () => {
+    const selecionadas = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map((c) => c.value);
+    try {
+      const putRes = await fetch(`/api/users/${u.id}/admin-unidades`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ unidades: selecionadas }),
+      });
+      const putData = await putRes.json();
+      if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
+      closeModal();
+    } catch (err) {
+      msgEl.className = 'form-msg is-error';
+      msgEl.textContent = err.message;
+    }
   });
 }
 
@@ -550,12 +642,14 @@ async function openUnidadesModal(u) {
 
 function openEditUserModal(u) {
   const canManageAdmins = currentUser && currentUser.role === 'super_admin';
-  const roleOptions = canManageAdmins
+    const roleOptions = canManageAdmins
     ? `
       <option value="user" ${u.role === 'user' ? 'selected' : ''}>Usuário</option>
+      <option value="admin_unidade" ${u.role === 'admin_unidade' ? 'selected' : ''}>Administrador de Unidade</option>
       <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
       <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>Super Administrador</option>
     `
+    : `<option value="user" selected>Usuário</option>`;
     : `<option value="user" selected>Usuário</option>`;
 
   openModal(`

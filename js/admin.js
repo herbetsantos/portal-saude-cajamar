@@ -598,7 +598,7 @@ async function openUnidadesModal(u) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erro ao carregar unidades.');
 
-    if (data.role === 'admin') {
+    if (data.role === 'admin' || data.role === 'super_admin') {
       listEl.innerHTML = `<p class="muted">Este usuário é administrador e já enxerga automaticamente <strong>todas</strong> as unidades. Não é necessário selecionar nada aqui.</p>`;
       saveBtn.style.display = 'none';
       return;

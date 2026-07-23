@@ -545,11 +545,11 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
 
 .panel-section {
   display: none;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 32px;
-  overflow-x: hidden;
+  width: fit-content;
+  min-width: 700px;      /* largura mínima */
+  max-width: 100%;
+  padding: 22px;
+  box-sizing: border-box;
 }
 
 .panel-section.is-active { display: block; }

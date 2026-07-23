@@ -585,7 +585,7 @@ table.data-table {
 }
 
 .data-table td {
-  padding: 12px;
+  padding: 14px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
 }

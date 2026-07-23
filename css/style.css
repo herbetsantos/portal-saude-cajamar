@@ -548,7 +548,7 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
   background: #fff;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 22px;
+  padding: 32px;
   overflow-x: hidden;
 }
 

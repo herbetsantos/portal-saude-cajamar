@@ -7,7 +7,7 @@
    --ink       #1b2340 (texto principal)
    --muted     #5b6480 (texto secundário)
    --line      #dde3f0 (bordas)
-   --surface   #f4f6fb (fundo de cartões)
+   --surface   #f4f6fb (fundo de cartões)F
    --bg        #ffffff (fundo da página)
 */
 
@@ -267,7 +267,7 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 /* ---------- Layout de página ---------- */
 
 .page {
-  max-width: 1080px;
+  max-width: 1400px;
   margin: 30px auto;
   padding: 40px 24px 80px;
 }

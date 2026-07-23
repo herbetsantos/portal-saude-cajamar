@@ -630,9 +630,7 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
   border-radius: var(--radius);
   padding: 22px;
   box-sizing: border-box;
-
-  width: max-content;
-  min-width: 100%;
+  width: 100%;      /* antes: width: max-content; min-width: 100%; */
 }
 
 .panel-section.is-active { display: block; }

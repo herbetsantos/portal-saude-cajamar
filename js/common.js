@@ -24,6 +24,9 @@ const TOPBAR_HTML = `
         <a class="nav__link" data-nav="manuais" href="/manuais.html"><span class="label-text">MANUAIS DE USO</span></a>
       </div>
       <div class="nav__item">
+        <a class="nav__link" data-nav="relatorios" id="relatoriosLink" href="/relatorios.html" style="display:none"><span class="label-text">RELATÓRIOS</span></a>
+      </div>
+      <div class="nav__item">
         <a class="nav__link" data-nav="admin" id="adminLink" href="/admin.html" style="display:none"><span class="label-text">ADMINISTRAÇÃO</span></a>
       </div>
       <div class="nav__mobile-foot">
@@ -99,12 +102,10 @@ function renderTopbarUser(user) {
   const chipMobile = document.getElementById('userChipMobile');
   if (chipMobile) chipMobile.innerHTML = chipHtml;
   const adminLink = document.getElementById('adminLink');
-    if (adminLink) adminLink.style.display = (user.role === 'admin' || user.role === 'super_admin' || user.role === 'admin_unidade') ? '' : 'none';
+  if (adminLink) adminLink.style.display = (user.role === 'admin' || user.role === 'super_admin' || user.role === 'admin_unidade') ? '' : 'none';
 }
 
 function setupLogout() {
-
-  function setupLogout() {
   const doLogout = async () => {
     await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
     window.location.href = '/login.html';
@@ -177,6 +178,19 @@ async function loadFerramentasMenu() {
   }
 }
 
+async function loadRelatoriosNav() {
+  const link = document.getElementById('relatoriosLink');
+  if (!link) return;
+  try {
+    const res = await fetch('/api/my-reports', { credentials: 'same-origin' });
+    const data = await res.json();
+    const reports = data.reports || [];
+    link.style.display = reports.length > 0 ? '' : 'none';
+  } catch {
+    link.style.display = 'none';
+  }
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -192,5 +206,6 @@ async function initPortalChrome(activeKey) {
   setupMobileNav();
   setupFerramentasDropdown();
   loadFerramentasMenu();
+  loadRelatoriosNav();
   return user;
 }

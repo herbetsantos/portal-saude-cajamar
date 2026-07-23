@@ -422,6 +422,330 @@ function confirmDeleteLink(id, category) {
   });
 }
 
+// ---------- Relatórios: grupos de acesso ----------
+
+let cachedReports = [];
+
+async function loadReportGroupsTable() {
+  const wrap = document.getElementById('reportGroupsWrap');
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+
+  const res = await fetch('/api/report-groups', { credentials: 'same-origin' });
+  const data = await res.json();
+  const groups = data.groups || [];
+
+  wrap.innerHTML = groups.length ? `
+    <table class="data-table">
+      <thead><tr><th>Nome</th><th>Descrição</th><th></th></tr></thead>
+      <tbody>
+        ${groups.map((g) => `
+          <tr>
+            <td>${escapeHtml(g.name)}</td>
+            <td>${escapeHtml(g.description || '—')}</td>
+            <td class="row-actions">
+              <button class="btn btn--outline btn--sm" data-edit-group="${g.id}">Editar</button>
+              <button class="btn btn--outline btn--sm" data-group-reports="${g.id}">Relatórios deste grupo</button>
+              <button class="btn btn--danger btn--sm" data-delete-group="${g.id}">Excluir</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : `<div class="empty-state">Nenhum grupo criado ainda.</div>`;
+
+  wrap.querySelectorAll('[data-edit-group]').forEach((btn) => {
+    const g = groups.find((x) => String(x.id) === btn.dataset.editGroup);
+    btn.addEventListener('click', () => openEditGroupModal(g));
+  });
+  wrap.querySelectorAll('[data-delete-group]').forEach((btn) => {
+    btn.addEventListener('click', () => confirmDeleteGroup(btn.dataset.deleteGroup));
+  });
+  wrap.querySelectorAll('[data-group-reports]').forEach((btn) => {
+    const g = groups.find((x) => String(x.id) === btn.dataset.groupReports);
+    btn.addEventListener('click', () => openGroupReportsModal(g));
+  });
+}
+
+document.getElementById('addGroupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('addGroupMsg');
+  msgEl.className = 'form-msg';
+  try {
+    const res = await fetch('/api/report-groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        name: document.getElementById('grpName').value.trim(),
+        description: document.getElementById('grpDesc').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao criar grupo.');
+    document.getElementById('addGroupForm').reset();
+    await loadReportGroupsTable();
+  } catch (err) {
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+  }
+});
+
+function openEditGroupModal(g) {
+  openModal(`
+    <h3>Editar grupo</h3>
+    <div id="editGroupMsg" class="form-msg"></div>
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="editGrpName" value="${escapeAttr(g.name)}">
+    </div>
+    <div class="field">
+      <label>Descrição</label>
+      <input type="text" id="editGrpDesc" value="${escapeAttr(g.description || '')}">
+    </div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelEditGroup" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveEditGroup" type="button">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelEditGroup').addEventListener('click', closeModal);
+  document.getElementById('saveEditGroup').addEventListener('click', async () => {
+    const msgEl = document.getElementById('editGroupMsg');
+    try {
+      const res = await fetch(`/api/report-groups/${g.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          name: document.getElementById('editGrpName').value.trim(),
+          description: document.getElementById('editGrpDesc').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
+      closeModal();
+      await loadReportGroupsTable();
+    } catch (err) {
+      msgEl.className = 'form-msg is-error';
+      msgEl.textContent = err.message;
+    }
+  });
+}
+
+function confirmDeleteGroup(id) {
+  openModal(`
+    <h3>Excluir grupo</h3>
+    <p class="muted">Usuários deste grupo perdem acesso aos relatórios vinculados a ele. Deseja continuar?</p>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelDelete" type="button">Cancelar</button>
+      <button class="btn btn--danger btn--sm" id="confirmDelete" type="button">Excluir</button>
+    </div>
+  `);
+  document.getElementById('cancelDelete').addEventListener('click', closeModal);
+  document.getElementById('confirmDelete').addEventListener('click', async () => {
+    await fetch(`/api/report-groups/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    closeModal();
+    await loadReportGroupsTable();
+  });
+}
+
+async function openGroupReportsModal(g) {
+  openModal(`
+    <h3>Relatórios do grupo "${escapeHtml(g.name)}"</h3>
+    <div id="groupReportsMsg" class="form-msg"></div>
+    <div id="groupReportsList" class="skeleton-loading">Carregando…</div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelGroupReports" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveGroupReports" type="button" style="display:none">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelGroupReports').addEventListener('click', closeModal);
+
+  const listEl = document.getElementById('groupReportsList');
+  const saveBtn = document.getElementById('saveGroupReports');
+  const msgEl = document.getElementById('groupReportsMsg');
+
+  try {
+    const res = await fetch(`/api/report-groups/${g.id}/reports`, { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao carregar relatórios.');
+    const reports = data.reports || [];
+
+    listEl.innerHTML = reports.length ? `
+      <div class="checkbox-list">
+        ${reports.map((r) => `
+          <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+            <input type="checkbox" value="${r.id}" ${r.atribuido ? 'checked' : ''} style="width:auto">
+            ${escapeHtml(r.title)}
+          </label>
+        `).join('')}
+      </div>
+    ` : `<p class="muted">Nenhum relatório cadastrado ainda. Adicione relatórios na lista abaixo antes.</p>`;
+    saveBtn.style.display = '';
+    saveBtn.addEventListener('click', async () => {
+      const reportIds = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map((c) => Number(c.value));
+      try {
+        const putRes = await fetch(`/api/report-groups/${g.id}/reports`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ reportIds }),
+        });
+        const putData = await putRes.json();
+        if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
+        closeModal();
+      } catch (err) {
+        msgEl.className = 'form-msg is-error';
+        msgEl.textContent = err.message;
+      }
+    });
+  } catch (err) {
+    listEl.innerHTML = '';
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+  }
+}
+
+// ---------- Relatórios: cadastro ----------
+
+async function loadReportsTable() {
+  const wrap = document.getElementById('reportsWrap');
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+
+  const res = await fetch('/api/reports', { credentials: 'same-origin' });
+  const data = await res.json();
+  cachedReports = data.reports || [];
+
+  wrap.innerHTML = cachedReports.length ? `
+    <table class="data-table">
+      <thead><tr><th>Título</th><th>Como abre</th><th>Ordem</th><th></th></tr></thead>
+      <tbody>
+        ${cachedReports.map((r) => `
+          <tr>
+            <td>${escapeHtml(r.title)}</td>
+            <td>${r.display_mode === 'new_tab' ? 'Nova aba' : 'Incorporado'}</td>
+            <td>${r.sort_order}</td>
+            <td class="row-actions">
+              <button class="btn btn--outline btn--sm" data-edit-report="${r.id}">Editar</button>
+              <button class="btn btn--danger btn--sm" data-delete-report="${r.id}">Excluir</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : `<div class="empty-state">Nenhum relatório cadastrado ainda.</div>`;
+
+  wrap.querySelectorAll('[data-edit-report]').forEach((btn) => {
+    const r = cachedReports.find((x) => String(x.id) === btn.dataset.editReport);
+    btn.addEventListener('click', () => openEditReportModal(r));
+  });
+  wrap.querySelectorAll('[data-delete-report]').forEach((btn) => {
+    btn.addEventListener('click', () => confirmDeleteReport(btn.dataset.deleteReport));
+  });
+}
+
+document.getElementById('addReportForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('addReportMsg');
+  msgEl.className = 'form-msg';
+  try {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        title: document.getElementById('repTitle').value.trim(),
+        description: document.getElementById('repDesc').value.trim(),
+        embed_url: document.getElementById('repUrl').value.trim(),
+        display_mode: document.getElementById('repMode').value,
+        sort_order: Number(document.getElementById('repOrder').value) || 0,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao adicionar relatório.');
+    document.getElementById('addReportForm').reset();
+    await loadReportsTable();
+  } catch (err) {
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+  }
+});
+
+function openEditReportModal(r) {
+  openModal(`
+    <h3>Editar relatório</h3>
+    <div id="editReportMsg" class="form-msg"></div>
+    <div class="field">
+      <label>Título</label>
+      <input type="text" id="editRepTitle" value="${escapeAttr(r.title)}">
+    </div>
+    <div class="field">
+      <label>Descrição</label>
+      <input type="text" id="editRepDesc" value="${escapeAttr(r.description || '')}">
+    </div>
+    <div class="field">
+      <label>Link do relatório</label>
+      <input type="url" id="editRepUrl" value="${escapeAttr(r.embed_url)}">
+    </div>
+    <div class="field">
+      <label>Como abrir</label>
+      <select id="editRepMode">
+        <option value="embed" ${r.display_mode === 'embed' ? 'selected' : ''}>Incorporado no portal</option>
+        <option value="new_tab" ${r.display_mode === 'new_tab' ? 'selected' : ''}>Nova aba</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Ordem de exibição</label>
+      <input type="number" id="editRepOrder" value="${r.sort_order}">
+    </div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelEditReport" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveEditReport" type="button">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelEditReport').addEventListener('click', closeModal);
+  document.getElementById('saveEditReport').addEventListener('click', async () => {
+    const msgEl = document.getElementById('editReportMsg');
+    try {
+      const res = await fetch(`/api/reports/${r.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          title: document.getElementById('editRepTitle').value.trim(),
+          description: document.getElementById('editRepDesc').value.trim(),
+          embed_url: document.getElementById('editRepUrl').value.trim(),
+          display_mode: document.getElementById('editRepMode').value,
+          sort_order: Number(document.getElementById('editRepOrder').value) || 0,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
+      closeModal();
+      await loadReportsTable();
+    } catch (err) {
+      msgEl.className = 'form-msg is-error';
+      msgEl.textContent = err.message;
+    }
+  });
+}
+
+function confirmDeleteReport(id) {
+  openModal(`
+    <h3>Excluir relatório</h3>
+    <p class="muted">Esta ação não pode ser desfeita. Deseja continuar?</p>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelDelete" type="button">Cancelar</button>
+      <button class="btn btn--danger btn--sm" id="confirmDelete" type="button">Excluir</button>
+    </div>
+  `);
+  document.getElementById('cancelDelete').addEventListener('click', closeModal);
+  document.getElementById('confirmDelete').addEventListener('click', async () => {
+    await fetch(`/api/reports/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    closeModal();
+    await loadReportsTable();
+  });
+}
+
 // ---------- Usuários ----------
 
 function roleLabel(role) {
@@ -461,6 +785,7 @@ wrap.innerHTML = `
               ${locked ? '<span class="muted" style="font-size:12.5px">Só Super Admin</span>' : `
                 <button class="btn btn--outline btn--sm" data-edit-user="${u.id}">Editar</button>
                 ${u.role === 'user' ? `<button class="btn btn--outline btn--sm" data-unidades-user="${u.id}">Unidades (Receituário)</button>` : ''}
+                ${u.role === 'user' ? `<button class="btn btn--outline btn--sm" data-report-groups-user="${u.id}">Grupos de relatórios</button>` : ''}
                 ${u.role === 'admin_unidade' && canManageAdmins ? `<button class="btn btn--outline btn--sm" data-gestao-user="${u.id}">Unidades que gerencia</button>` : ''}
                 <button class="btn btn--danger btn--sm" data-delete-user="${u.id}">Excluir</button>
               `}
@@ -485,6 +810,10 @@ wrap.innerHTML = `
   wrap.querySelectorAll('[data-gestao-user]').forEach((btn) => {
     const u = users.find((x) => String(x.id) === btn.dataset.gestaoUser);
     btn.addEventListener('click', () => openAdminUnidadesModal(u));
+  });
+  wrap.querySelectorAll('[data-report-groups-user]').forEach((btn) => {
+    const u = users.find((x) => String(x.id) === btn.dataset.reportGroupsUser);
+    btn.addEventListener('click', () => openReportGroupsUserModal(u));
   });
 }  
 
@@ -624,6 +953,70 @@ async function openUnidadesModal(u) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
           body: JSON.stringify({ unidades: codigos }),
+        });
+        const putData = await putRes.json();
+        if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
+        closeModal();
+      } catch (err) {
+        msgEl.className = 'form-msg is-error';
+        msgEl.textContent = err.message;
+      }
+    });
+  } catch (err) {
+    listEl.innerHTML = '';
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+  }
+}
+
+async function openReportGroupsUserModal(u) {
+  openModal(`
+    <h3>Grupos de acesso a relatórios</h3>
+    <p class="muted">${escapeHtml(u.name)} (${escapeHtml(u.username)})</p>
+    <div id="repGroupsMsg" class="form-msg"></div>
+    <div id="repGroupsList" class="skeleton-loading">Carregando…</div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelRepGroups" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveRepGroups" type="button" style="display:none">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelRepGroups').addEventListener('click', closeModal);
+
+  const listEl = document.getElementById('repGroupsList');
+  const saveBtn = document.getElementById('saveRepGroups');
+  const msgEl = document.getElementById('repGroupsMsg');
+
+  try {
+    const res = await fetch(`/api/users/${u.id}/report-groups`, { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao carregar grupos.');
+
+    if (data.role === 'admin' || data.role === 'super_admin') {
+      listEl.innerHTML = `<p class="muted">Este usuário é administrador e já enxerga automaticamente <strong>todos</strong> os relatórios. Não é necessário selecionar nada aqui.</p>`;
+      saveBtn.style.display = 'none';
+      return;
+    }
+
+    listEl.innerHTML = data.groups.length ? `
+      <div class="checkbox-list">
+        ${data.groups.map((g) => `
+          <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+            <input type="checkbox" value="${g.id}" ${g.atribuido ? 'checked' : ''} style="width:auto">
+            ${escapeHtml(g.name)}
+          </label>
+        `).join('')}
+      </div>
+      <p class="muted" style="margin-top:8px">Marque os grupos aos quais ${escapeHtml(u.name)} deve pertencer.</p>
+    ` : `<p class="muted">Nenhum grupo de acesso criado ainda. Crie um na aba Relatórios.</p>`;
+    saveBtn.style.display = data.groups.length ? '' : 'none';
+    saveBtn.addEventListener('click', async () => {
+      const groupIds = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map((c) => Number(c.value));
+      try {
+        const putRes = await fetch(`/api/users/${u.id}/report-groups`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ groupIds }),
         });
         const putData = await putRes.json();
         if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
@@ -836,6 +1229,8 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
     loadLinksTable('ferramenta');
     loadLinksTable('documento');
     loadLinksTable('manual');
+    loadReportGroupsTable();
+    loadReportsTable();
   }
   loadSignupRequestsTable();
   loadUsersTable();

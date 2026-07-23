@@ -96,6 +96,42 @@ CREATE TABLE admin_unidades (
   FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Relatórios (dashboards) exibidos na aba Relatórios, com controle de acesso
+-- por "grupos de acesso" (ponte entre usuários e relatórios).
+CREATE TABLE report_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT,
+  embed_url TEXT NOT NULL,
+  -- 'embed': mostra dentro do próprio portal (iframe). 'new_tab': abre o link em nova aba.
+  display_mode TEXT NOT NULL DEFAULT 'embed' CHECK (display_mode IN ('embed','new_tab')),
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE report_group_reports (
+  group_id INTEGER NOT NULL,
+  report_id INTEGER NOT NULL,
+  PRIMARY KEY (group_id, report_id),
+  FOREIGN KEY (group_id) REFERENCES report_groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
+);
+
+CREATE TABLE user_report_groups (
+  user_id INTEGER NOT NULL,
+  group_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, group_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (group_id) REFERENCES report_groups(id) ON DELETE CASCADE
+);
+
 -- Usuário administrador inicial (já como super_admin)
 -- login: admin   senha: Cajamar@2026  (ALTERE assim que fizer o primeiro acesso, em Administração > Usuários)
 INSERT INTO users (username, name, password_hash, salt, role) VALUES

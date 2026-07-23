@@ -405,6 +405,17 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
 .doc-row__title { font-weight: 600; font-size: 15px; flex: 1; }
 .doc-row__desc { color: var(--muted); font-size: 13px; }
 
+.report-back-link { display: inline-block; margin-bottom: 14px; color: var(--primary); font-weight: 600; font-size: 14px; text-decoration: none; }
+.report-back-link:hover { text-decoration: underline; }
+.report-frame-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+.report-frame { width: 100%; height: 75vh; min-height: 480px; border: 0; display: block; }
+
 .empty-state {
   border: 1.5px dashed var(--line);
   border-radius: var(--radius);

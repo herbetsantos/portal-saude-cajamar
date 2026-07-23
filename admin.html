@@ -30,6 +30,7 @@
       <button class="admin-tab" data-tab="ferramenta">Ferramentas</button>
       <button class="admin-tab" data-tab="documento">Documentos Úteis</button>
       <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
+      <button class="admin-tab" data-tab="relatorios">Relatórios</button>
       <button class="admin-tab" data-tab="usuarios">Usuários</button>
       <button class="admin-tab" data-tab="conta">Minha Conta</button>
     </div>
@@ -118,6 +119,70 @@
           </div>
         </div>
         <div class="table-wrap" data-table="manual"></div>
+      </section>
+
+      <!-- Relatórios -->
+      <section class="panel-section" data-panel="relatorios">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Grupos de acesso</div>
+            <div class="panel-section__desc">Crie grupos (ex.: Enfermagem, Gestão) e escolha quais relatórios cada grupo pode ver. Depois, atribua usuários aos grupos na aba Usuários.</div>
+          </div>
+        </div>
+        <div id="reportGroupsWrap"><div class="skeleton-loading">Carregando…</div></div>
+
+        <form id="addGroupForm" class="inline-form">
+          <div class="field">
+            <label for="grpName">Nome do grupo</label>
+            <input type="text" id="grpName" required placeholder="Ex.: Enfermagem">
+          </div>
+          <div class="field field--full">
+            <label for="grpDesc">Descrição (opcional)</label>
+            <input type="text" id="grpDesc">
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Criar grupo</button>
+          </div>
+          <div id="addGroupMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+
+        <div class="panel-section__head" style="margin-top:34px">
+          <div>
+            <div class="panel-section__title">Relatórios cadastrados</div>
+            <div class="panel-section__desc">Link do relatório do Data Studio (ou outro serviço) e como ele deve abrir para quem tiver acesso.</div>
+          </div>
+        </div>
+        <div id="reportsWrap"><div class="skeleton-loading">Carregando…</div></div>
+
+        <form id="addReportForm" class="inline-form">
+          <div class="field field--full">
+            <label for="repTitle">Título</label>
+            <input type="text" id="repTitle" required>
+          </div>
+          <div class="field field--full">
+            <label for="repDesc">Descrição (opcional)</label>
+            <input type="text" id="repDesc">
+          </div>
+          <div class="field field--full">
+            <label for="repUrl">Link do relatório (embed do Data Studio ou outro link)</label>
+            <input type="url" id="repUrl" required placeholder="https://">
+          </div>
+          <div class="field">
+            <label for="repMode">Como abrir</label>
+            <select id="repMode">
+              <option value="embed">Incorporado no portal</option>
+              <option value="new_tab">Nova aba</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="repOrder">Ordem de exibição</label>
+            <input type="number" id="repOrder" value="1">
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Adicionar relatório</button>
+          </div>
+          <div id="addReportMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
       </section>
 
       <!-- Usuários -->

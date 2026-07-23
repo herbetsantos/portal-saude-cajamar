@@ -12,6 +12,10 @@
 </head>
 <body>
   <div class="login-shell">
+    <div class="login-bg" aria-hidden="true">
+      <canvas id="netBg"></canvas>
+    </div>
+
     <div class="login-card">
       <div class="brand"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></div>
       <div class="login-title">Portal Saúde</div>
@@ -35,6 +39,132 @@
       <div class="login-foot">Secretaria de Saúde</div>
     </div>
   </div>
+
+  <script>
+    // Fundo decorativo: rede wireframe de pontos conectados por linhas.
+    // Os pontos flutuam devagar e se afastam do cursor, expandindo e
+    // contraindo a malha ao redor do mouse.
+    (function () {
+      const canvas = document.getElementById('netBg');
+      const shell = document.querySelector('.login-shell');
+      if (!canvas || !shell) return;
+      const ctx = canvas.getContext('2d');
+
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const LINE_COLOR = '32,59,143';   // --primary em rgb
+      const CONNECT_DIST = 130;
+      const REPEL_RADIUS = 150;
+      const REPEL_STRENGTH = 46;
+      const EASE = 0.08;
+
+      let w = 0, h = 0, dpr = 1;
+      let particles = [];
+      let mouse = { x: 0, y: 0, active: false };
+      let rafId = null;
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        w = shell.clientWidth;
+        h = shell.clientHeight;
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        initParticles();
+        if (prefersReduced) drawFrame(false);
+      }
+
+      function initParticles() {
+        const count = Math.max(26, Math.min(70, Math.floor((w * h) / 20000)));
+        particles = [];
+        for (let i = 0; i < count; i++) {
+          particles.push({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            vx: (Math.random() - 0.5) * 0.18,
+            vy: (Math.random() - 0.5) * 0.18,
+            ox: 0,
+            oy: 0,
+          });
+        }
+      }
+
+      function updateParticles() {
+        for (const p of particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x <= 0 || p.x >= w) { p.vx *= -1; p.x = Math.max(0, Math.min(w, p.x)); }
+          if (p.y <= 0 || p.y >= h) { p.vy *= -1; p.y = Math.max(0, Math.min(h, p.y)); }
+
+          let tox = 0, toy = 0;
+          if (mouse.active) {
+            const dx = p.x - mouse.x;
+            const dy = p.y - mouse.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+            if (dist < REPEL_RADIUS) {
+              const force = (1 - dist / REPEL_RADIUS) * REPEL_STRENGTH;
+              tox = (dx / dist) * force;
+              toy = (dy / dist) * force;
+            }
+          }
+          p.ox += (tox - p.ox) * EASE;
+          p.oy += (toy - p.oy) * EASE;
+        }
+      }
+
+      function drawFrame() {
+        ctx.clearRect(0, 0, w, h);
+
+        for (let i = 0; i < particles.length; i++) {
+          const a = particles[i];
+          const ax = a.x + a.ox, ay = a.y + a.oy;
+          for (let j = i + 1; j < particles.length; j++) {
+            const b = particles[j];
+            const bx = b.x + b.ox, by = b.y + b.oy;
+            const dx = ax - bx, dy = ay - by;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < CONNECT_DIST) {
+              const alpha = (1 - dist / CONNECT_DIST) * 0.55;
+              ctx.strokeStyle = `rgba(${LINE_COLOR},${alpha.toFixed(3)})`;
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(ax, ay);
+              ctx.lineTo(bx, by);
+              ctx.stroke();
+            }
+          }
+        }
+
+        for (const p of particles) {
+          const x = p.x + p.ox, y = p.y + p.oy;
+          ctx.beginPath();
+          ctx.arc(x, y, 2.4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${LINE_COLOR},0.6)`;
+          ctx.fill();
+        }
+      }
+
+      function loop() {
+        updateParticles();
+        drawFrame();
+        rafId = requestAnimationFrame(loop);
+      }
+
+      window.addEventListener('resize', resize);
+      shell.addEventListener('mousemove', (e) => {
+        const rect = shell.getBoundingClientRect();
+        mouse.x = e.clientX - rect.left;
+        mouse.y = e.clientY - rect.top;
+        mouse.active = true;
+      });
+      shell.addEventListener('mouseleave', () => { mouse.active = false; });
+
+      resize();
+      if (!prefersReduced) {
+        rafId = requestAnimationFrame(loop);
+      }
+    })();
+  </script>
 
   <script>
     const form = document.getElementById('loginForm');

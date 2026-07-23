@@ -16,27 +16,35 @@
       <canvas id="netBg"></canvas>
     </div>
 
-    <div class="login-card">
-      <div class="brand"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></div>
-      <div class="login-title">Portal Saúde</div>
-      <div class="login-subtitle">Acesso restrito a usuários autorizados</div>
+    <div class="login-layout">
+      <div class="login-hero">
+        <!-- Textos editáveis: só trocar o conteúdo abaixo. -->
+        <div class="login-hero__title">Bem-vindo ao Portal Saúde de Cajamar</div>
+        <div class="login-hero__subtitle">Acesso unificado às ferramentas, documentos e manuais da Atenção Primária à Saúde do município.</div>
+      </div>
 
-      <div id="formMsg" class="form-msg"></div>
+      <div class="login-card">
+        <div class="brand"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></div>
+        <div class="login-title">Portal Saúde</div>
+        <div class="login-subtitle">Acesso restrito a usuários autorizados</div>
 
-      <form id="loginForm">
-        <div class="field">
-          <label for="username">Usuário</label>
-          <input type="text" id="username" name="username" autocomplete="username" required autofocus>
-        </div>
-        <div class="field">
-          <label for="password">Senha</label>
-          <input type="password" id="password" name="password" autocomplete="current-password" required>
-        </div>
-        <button type="submit" class="btn btn--accent" id="submitBtn">Entrar</button>
-      </form>
-      <div class="login-foot"><a href="/solicitar-acesso.html">Não tem acesso? Solicitar cadastro</a></div>
-      <div class="login-foot">Prefeitura Municipal de Cajamar</div>
-      <div class="login-foot">Secretaria de Saúde</div>
+        <div id="formMsg" class="form-msg"></div>
+
+        <form id="loginForm">
+          <div class="field">
+            <label for="username">Usuário</label>
+            <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+          </div>
+          <div class="field">
+            <label for="password">Senha</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="btn btn--accent" id="submitBtn">Entrar</button>
+        </form>
+        <div class="login-foot"><a href="/solicitar-acesso.html">Não tem acesso? Solicitar cadastro</a></div>
+        <div class="login-foot">Prefeitura Municipal de Cajamar</div>
+        <div class="login-foot">Secretaria de Saúde</div>
+      </div>
     </div>
   </div>
 

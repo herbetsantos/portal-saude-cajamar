@@ -32,7 +32,7 @@ export function isUnidadeCode(code) {
 // Admin: todas. Usuário comum: somente as atribuídas pelo administrador
 // na tabela user_unidades.
 export async function getUnidadesPermitidas(env, user) {
-  if (user.role === 'admin') {
+  if (user.role === 'admin' || user.role === 'super_admin') {
     return UNIDADES.map((u) => u.code);
   }
   const { results } = await env.DB.prepare(

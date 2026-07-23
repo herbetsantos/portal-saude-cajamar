@@ -1,13 +1,13 @@
-import { json, requireAdmin, hashPassword, randomHex } from '../_utils.js';
+import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex } from '../_utils.js';
 
 export async function onRequestPut({ request, env, params }) {
-  const { user: requester, error } = await requireAdmin(request, env);
+  const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
 
   const id = Number(params.id);
   if (!id) return json({ error: 'ID inválido.' }, 400);
 
-  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  const target = await env.DB.prepare('SELECT id, role, unidade FROM users WHERE id = ?').bind(id).first();
   if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
   let body;
@@ -18,13 +18,27 @@ export async function onRequestPut({ request, env, params }) {
   }
 
   const { name, role, active, newPassword, unidade } = body;
+  const targetIsAdminLevel = target.role !== 'user';
+  const newRoleIsAdminLevel = role && role !== 'user';
 
-  const targetIsAdminLevel = target.role === 'admin' || target.role === 'super_admin';
-  const newRoleIsAdminLevel = role === 'admin' || role === 'super_admin';
-
-  if ((targetIsAdminLevel || newRoleIsAdminLevel) && requester.role !== 'super_admin') {
+  if (requester.role === 'admin_unidade') {
+    if (targetIsAdminLevel) {
+      return json({ error: 'Você não pode gerenciar contas de administrador.' }, 403);
+    }
+    if (newRoleIsAdminLevel) {
+      return json({ error: 'Você não pode alterar o papel deste usuário.' }, 403);
+    }
+    const minhas = (await getAdminUnidades(env, requester.id)).map((u) => u.toLowerCase());
+    if (!target.unidade || !minhas.includes(target.unidade.toLowerCase())) {
+      return json({ error: 'Você só pode gerenciar usuários das unidades sob sua gestão.' }, 403);
+    }
+    if (typeof unidade === 'string' && unidade.trim() && !minhas.includes(unidade.trim().toLowerCase())) {
+      return json({ error: 'Você só pode mover o usuário para uma das unidades sob sua gestão.' }, 403);
+    }
+  } else if ((targetIsAdminLevel || newRoleIsAdminLevel) && requester.role !== 'super_admin') {
     return json({ error: 'Somente o Super Administrador pode gerenciar contas de administrador.' }, 403);
   }
+
   if (id === requester.id && role === 'user') {
     return json({ error: 'Você não pode remover seu próprio acesso de administrador.' }, 400);
   }
@@ -39,7 +53,7 @@ export async function onRequestPut({ request, env, params }) {
     updates.push('name = ?');
     values.push(name.trim());
   }
-  if (role === 'admin' || role === 'user' || role === 'super_admin') {
+  if (['admin', 'user', 'super_admin', 'admin_unidade'].includes(role)) {
     updates.push('role = ?');
     values.push(role);
   }
@@ -68,17 +82,22 @@ export async function onRequestPut({ request, env, params }) {
 }
 
 export async function onRequestDelete({ request, env, params }) {
-  const { user: requester, error } = await requireAdmin(request, env);
+  const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
 
   const id = Number(params.id);
   if (!id) return json({ error: 'ID inválido.' }, 400);
   if (id === requester.id) return json({ error: 'Você não pode excluir o seu próprio usuário.' }, 400);
 
-  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  const target = await env.DB.prepare('SELECT id, role, unidade FROM users WHERE id = ?').bind(id).first();
   if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
-  if ((target.role === 'admin' || target.role === 'super_admin') && requester.role !== 'super_admin') {
+  if (requester.role === 'admin_unidade') {
+    const minhas = (await getAdminUnidades(env, requester.id)).map((u) => u.toLowerCase());
+    if (target.role !== 'user' || !target.unidade || !minhas.includes(target.unidade.toLowerCase())) {
+      return json({ error: 'Você só pode excluir usuários das unidades sob sua gestão.' }, 403);
+    }
+  } else if (target.role !== 'user' && requester.role !== 'super_admin') {
     return json({ error: 'Somente o Super Administrador pode excluir contas de administrador.' }, 403);
   }
 

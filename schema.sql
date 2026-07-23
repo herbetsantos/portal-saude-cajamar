@@ -17,7 +17,7 @@ CREATE TABLE users (
   -- 'user': acesso comum. 'admin': gerencia conteúdo e usuários comuns.
   -- 'super_admin': tudo que 'admin' faz, além de criar/editar/excluir outros
   -- administradores (só ele pode mexer em contas 'admin'/'super_admin').
-  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin','super_admin')),
+role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin','super_admin','admin_unidade')),
   active INTEGER NOT NULL DEFAULT 1,
   -- Quando 1, o usuário é obrigado a trocar a senha no próximo login (usado
   -- quando o admin define uma senha temporária, ex.: recuperação de acesso).
@@ -85,6 +85,15 @@ CREATE TABLE user_unidades (
   unidade_code TEXT NOT NULL,
   PRIMARY KEY (user_id, unidade_code),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Quais unidades cada administrador de unidade (admin_unidade) pode gerenciar.
+-- Um mesmo admin_unidade pode cobrir várias unidades. Super Admin gerencia isso.
+CREATE TABLE admin_unidades (
+  admin_user_id INTEGER NOT NULL,
+  unidade TEXT NOT NULL,
+  PRIMARY KEY (admin_user_id, unidade),
+  FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Usuário administrador inicial (já como super_admin)

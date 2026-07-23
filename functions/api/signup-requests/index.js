@@ -1,8 +1,20 @@
-import { json, requireAdmin, hashPassword, randomHex } from '../_utils.js';
+import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex } from '../_utils.js';
 
 export async function onRequestGet({ request, env }) {
-  const { error } = await requireAdmin(request, env);
+  const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
+
+  if (requester.role === 'admin_unidade') {
+    const minhas = (await getAdminUnidades(env, requester.id)).map((u) => u.toLowerCase());
+    if (minhas.length === 0) return json({ requests: [] });
+    const placeholders = minhas.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(
+      `SELECT id, name, username, unidade, status, created_at
+       FROM signup_requests WHERE status = 'pending' AND lower(unidade) IN (${placeholders})
+       ORDER BY created_at ASC`
+    ).bind(...minhas).all();
+    return json({ requests: results });
+  }
 
   const { results } = await env.DB.prepare(
     `SELECT id, name, username, unidade, status, created_at

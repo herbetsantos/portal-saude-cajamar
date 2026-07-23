@@ -650,7 +650,6 @@ function openEditUserModal(u) {
       <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>Super Administrador</option>
     `
     : `<option value="user" selected>Usuário</option>`;
-    : `<option value="user" selected>Usuário</option>`;
 
   openModal(`
     <h3>Editar usuário</h3>

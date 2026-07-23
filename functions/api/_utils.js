@@ -126,3 +126,19 @@ export async function requireSuperAdmin(request, env) {
   }
   return { user };
 }
+
+export async function requireAdminPanel(request, env) {
+  const user = await getAuthUser(request, env);
+  if (!user) return { error: json({ error: 'Não autenticado.' }, 401) };
+  if (!['admin', 'super_admin', 'admin_unidade'].includes(user.role)) {
+    return { error: json({ error: 'Acesso restrito ao administrador.' }, 403) };
+  }
+  return { user };
+}
+
+export async function getAdminUnidades(env, adminUserId) {
+  const { results } = await env.DB.prepare(
+    'SELECT unidade FROM admin_unidades WHERE admin_user_id = ?'
+  ).bind(adminUserId).all();
+  return results.map((r) => r.unidade);
+}

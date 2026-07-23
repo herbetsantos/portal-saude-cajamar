@@ -99,8 +99,10 @@ function renderTopbarUser(user) {
   const chipMobile = document.getElementById('userChipMobile');
   if (chipMobile) chipMobile.innerHTML = chipHtml;
   const adminLink = document.getElementById('adminLink');
-if (adminLink) adminLink.style.display = (user.role === 'admin' || user.role === 'super_admin' || user.role === 'admin_unidade') ? '' : 'none';
-function setupLogout() {
+  if (adminLink) adminLink.style.display = (user.role === 'admin' || user.role === 'super_admin' || user.role === 'admin_unidade') ? '' : 'none';
+  }
+
+  function setupLogout() {
   const doLogout = async () => {
     await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
     window.location.href = '/login.html';

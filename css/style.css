@@ -544,11 +544,7 @@ a.card:hover, .card:hover { box-shadow: var(--shadow); border-color: #c7d2ec; tr
 .admin-panel { flex: 1; min-width: 0; }
 
 .panel-section {
-  display: none;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 22px;
+    overflow-x: hidden;
 }
 
 .panel-section.is-active { display: block; }

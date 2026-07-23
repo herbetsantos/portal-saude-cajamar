@@ -801,23 +801,43 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
   const user = await initPortalChrome('admin');
   if (!user) return;
 
-  if (user.role !== 'admin' && user.role !== 'super_admin') {
+  if (!['admin', 'super_admin', 'admin_unidade'].includes(user.role)) {
     document.getElementById('notAdminMsg').style.display = 'block';
     return;
   }
 
   currentUser = user;
 
-  if (currentUser.role !== 'super_admin') {
+  if (currentUser.role === 'super_admin') {
+    const opt = document.createElement('option');
+    opt.value = 'admin_unidade';
+    opt.textContent = 'Administrador de Unidade';
+    document.getElementById('uRole').appendChild(opt);
+  } else {
     document.querySelectorAll('#uRole option[value="admin"], #uRole option[value="super_admin"]').forEach((opt) => opt.remove());
   }
 
   document.getElementById('adminShell').style.display = 'flex';
+
+  if (currentUser.role === 'admin_unidade') {
+    // Admin de unidade só cuida de usuários — esconde as demais abas.
+    document.querySelectorAll('.admin-tab').forEach((tab) => {
+      if (!['solicitacoes', 'usuarios', 'conta'].includes(tab.dataset.tab)) {
+        tab.style.display = 'none';
+      }
+    });
+    document.querySelectorAll('.panel-section').forEach((p) => p.classList.remove('is-active'));
+    document.querySelector('.admin-tab[data-tab="usuarios"]').classList.add('is-active');
+    document.querySelector('.panel-section[data-panel="usuarios"]').classList.add('is-active');
+  }
+
   setupTabs();
-  loadUpdatesTable();
+  if (currentUser.role !== 'admin_unidade') {
+    loadUpdatesTable();
+    loadLinksTable('ferramenta');
+    loadLinksTable('documento');
+    loadLinksTable('manual');
+  }
   loadSignupRequestsTable();
-  loadLinksTable('ferramenta');
-  loadLinksTable('documento');
-  loadLinksTable('manual');
   loadUsersTable();
 })();

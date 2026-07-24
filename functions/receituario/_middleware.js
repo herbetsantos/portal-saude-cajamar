@@ -17,6 +17,7 @@
 
 import { getAuthUser } from '../api/_utils.js';
 import { getUnidadesPermitidas } from '../api/_unidades.js';
+import { getUserPermissions } from '../api/_permissions.js';
 
 // Cloudflare Pages chama onRequest(context) para toda requisição que bater
 // nesta rota, com { request, env, next, params, ... }.
@@ -31,6 +32,14 @@ async function protectAndServe({ request, env, next }) {
   if (!user) {
     const nextParam = encodeURIComponent(url.pathname + url.search);
     return Response.redirect(`${url.origin}/login.html?next=${nextParam}`, 302);
+  }
+
+  const permissions = await getUserPermissions(env, user);
+  if (!permissions.receituario) {
+    return Response.redirect(
+      `${url.origin}/portal.html?erro=${encodeURIComponent('Você não tem acesso à ferramenta de Receituário. Fale com o administrador do portal.')}`,
+      302
+    );
   }
 
   const permitidas = await getUnidadesPermitidas(env, user);

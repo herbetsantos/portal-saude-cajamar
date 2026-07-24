@@ -101,8 +101,17 @@ function renderTopbarUser(user) {
   if (chip) chip.innerHTML = chipHtml;
   const chipMobile = document.getElementById('userChipMobile');
   if (chipMobile) chipMobile.innerHTML = chipHtml;
+  const perms = user.permissions || {};
   const adminLink = document.getElementById('adminLink');
-  if (adminLink) adminLink.style.display = (user.role === 'admin' || user.role === 'super_admin' || user.role === 'admin_unidade') ? '' : 'none';
+  if (adminLink) adminLink.style.display = perms.administracao ? '' : 'none';
+
+  // Documentos Úteis / Manuais de Uso ficam visíveis por padrão; só escondemos
+  // se a permissão vier explicitamente desligada (evita esconder tudo caso a
+  // migração de permissões ainda não tenha rodado no ambiente).
+  const docLink = document.querySelector('[data-nav="documentos"]');
+  if (docLink) docLink.style.display = perms.documentos === false ? 'none' : '';
+  const manLink = document.querySelector('[data-nav="manuais"]');
+  if (manLink) manLink.style.display = perms.manuais === false ? 'none' : '';
 }
 
 function setupLogout() {
@@ -160,16 +169,21 @@ function setupFerramentasDropdown() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 }
 
-async function loadFerramentasMenu() {
+async function loadFerramentasMenu(perms) {
   const menu = document.getElementById('ferramentasMenu');
   if (!menu) return;
   try {
     const res = await fetch('/api/links?category=ferramenta', { credentials: 'same-origin' });
     const data = await res.json();
-    const links = data.links || [];
+    let links = data.links || [];
+    // Um link sem feature_key associado (ainda não configurado) continua
+    // aparecendo para todos, pra não sumir ferramenta nenhuma sem querer.
+    if (perms) {
+      links = links.filter((l) => !l.feature_key || perms[l.feature_key] !== false);
+    }
     menu.innerHTML = links.length
       ? links.map((l) => `
-          <a class="submenu__link" href="${escapeAttr(l.url)}" target="_blank" rel="noopener">
+          <a class="submenu__link" href="${escapeAttr(l.url)}">
             <span class="cross">✚</span>${escapeHtml(l.title)}
           </a>`).join('')
       : `<div class="submenu__link" style="color:var(--muted)">Nenhuma ferramenta cadastrada</div>`;
@@ -178,9 +192,13 @@ async function loadFerramentasMenu() {
   }
 }
 
-async function loadRelatoriosNav() {
+async function loadRelatoriosNav(perms) {
   const link = document.getElementById('relatoriosLink');
   if (!link) return;
+  if (perms && perms.relatorios === false) {
+    link.style.display = 'none';
+    return;
+  }
   try {
     const res = await fetch('/api/my-reports', { credentials: 'same-origin' });
     const data = await res.json();
@@ -205,7 +223,7 @@ async function initPortalChrome(activeKey) {
   setupLogout();
   setupMobileNav();
   setupFerramentasDropdown();
-  loadFerramentasMenu();
-  loadRelatoriosNav();
+  loadFerramentasMenu(user.permissions);
+  loadRelatoriosNav(user.permissions);
   return user;
 }

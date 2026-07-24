@@ -1,6 +1,7 @@
 import { json, requireAdminPanel, getAdminUnidades } from '../../_utils.js';
+import { FEATURES, isFeatureKey, getRoleCeiling } from '../../_permissions.js';
 
-// GET: lista todos os grupos de acesso + quais estão atribuídos ao usuário.
+// GET: teto do papel do usuário-alvo + as exceções individuais já salvas.
 export async function onRequestGet({ request, env, params }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
@@ -13,28 +14,24 @@ export async function onRequestGet({ request, env, params }) {
 
   if (requester.role === 'admin_unidade') {
     const minhas = (await getAdminUnidades(env, requester.id)).map((u) => u.toLowerCase());
-    if (target.role !== 'user' || !target.unidade || !minhas.includes(target.unidade.toLowerCase())) {
+    if (target.role !== 'user' || !minhas.includes((target.unidade || '').toLowerCase())) {
       return json({ error: 'Você só pode gerenciar usuários das unidades sob sua gestão.' }, 403);
     }
   }
 
-  const { results: todos } = await env.DB.prepare(
-    'SELECT id, name, description FROM report_groups ORDER BY name ASC'
-  ).all();
-
-  const { results: atribuidos } = await env.DB.prepare(
-    'SELECT group_id FROM user_report_groups WHERE user_id = ?'
+  const ceiling = await getRoleCeiling(env, target.role);
+  const { results } = await env.DB.prepare(
+    'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
   ).bind(id).all();
-  const atribuidosSet = new Set(atribuidos.map((r) => r.group_id));
+  const overrides = {};
+  results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
 
-  return json({
-    role: target.role,
-    groups: todos.map((g) => ({ ...g, atribuido: target.role === 'admin' || target.role === 'super_admin' || atribuidosSet.has(g.id) })),
-  });
+  return json({ role: target.role, features: FEATURES, ceiling, overrides });
 }
 
-// PUT: substitui a lista de grupos de acesso do usuário.
-// body: { groupIds: [1, 2, 3] }
+// PUT: substitui as exceções individuais do usuário.
+// body: { permissions: { receituario: true, malotes: false, ... } }
+// Qualquer chave fora do teto do papel é ignorada (nunca eleva acima do teto).
 export async function onRequestPut({ request, env, params }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
@@ -45,9 +42,13 @@ export async function onRequestPut({ request, env, params }) {
   const target = await env.DB.prepare('SELECT id, role, unidade FROM users WHERE id = ?').bind(id).first();
   if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
+  if (target.role === 'super_admin') {
+    return json({ error: 'Super Administrador sempre tem acesso completo; não há o que configurar aqui.' }, 400);
+  }
+
   if (requester.role === 'admin_unidade') {
     const minhas = (await getAdminUnidades(env, requester.id)).map((u) => u.toLowerCase());
-    if (target.role !== 'user' || !target.unidade || !minhas.includes(target.unidade.toLowerCase())) {
+    if (target.role !== 'user' || !minhas.includes((target.unidade || '').toLowerCase())) {
       return json({ error: 'Você só pode gerenciar usuários das unidades sob sua gestão.' }, 403);
     }
   }
@@ -59,13 +60,16 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const groupIds = Array.isArray(body.groupIds) ? body.groupIds.map(Number).filter(Boolean) : [];
+  const ceiling = await getRoleCeiling(env, target.role);
+  const wanted = body.permissions || {};
 
-  await env.DB.prepare('DELETE FROM user_report_groups WHERE user_id = ?').bind(id).run();
-  for (const groupId of groupIds) {
-    await env.DB.prepare('INSERT INTO user_report_groups (user_id, group_id) VALUES (?, ?)')
-      .bind(id, groupId)
-      .run();
+  await env.DB.prepare('DELETE FROM user_permissions WHERE user_id = ?').bind(id).run();
+  for (const f of FEATURES) {
+    if (!ceiling[f.key]) continue; // nunca grava exceção acima do teto do papel
+    const enabled = wanted[f.key] ? 1 : 0;
+    await env.DB.prepare(
+      'INSERT INTO user_permissions (user_id, feature_key, enabled) VALUES (?, ?, ?)'
+    ).bind(id, f.key, enabled).run();
   }
 
   return json({ ok: true });

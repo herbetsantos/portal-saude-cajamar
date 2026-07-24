@@ -1,4 +1,5 @@
 import { json, requireAdmin } from '../_utils.js';
+import { isFeatureKey } from '../_permissions.js';
 
 const CATEGORIES = ['ferramenta', 'documento', 'manual'];
 
@@ -16,16 +17,17 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const { category, title, url, description, sort_order } = body;
+  const { category, title, url, description, sort_order, feature_key } = body;
   if (category && !CATEGORIES.includes(category)) return json({ error: 'Categoria inválida.' }, 400);
   if (!title || !title.trim()) return json({ error: 'Informe um título.' }, 400);
   if (!url || !url.trim()) return json({ error: 'Informe uma URL.' }, 400);
+  if (feature_key && !isFeatureKey(feature_key)) return json({ error: 'Funcionalidade inválida.' }, 400);
 
   await env.DB.prepare(
-    `UPDATE links SET category = COALESCE(?, category), title = ?, url = ?, description = ?, sort_order = ?
+    `UPDATE links SET category = COALESCE(?, category), title = ?, url = ?, description = ?, sort_order = ?, feature_key = ?
      WHERE id = ?`
   )
-    .bind(category || null, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, id)
+    .bind(category || null, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, feature_key || null, id)
     .run();
 
   return json({ ok: true });

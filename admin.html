@@ -31,6 +31,7 @@
       <button class="admin-tab" data-tab="documento">Documentos Úteis</button>
       <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
       <button class="admin-tab" data-tab="relatorios">Relatórios</button>
+      <button class="admin-tab" data-tab="perfis">Perfis de acesso</button>
       <button class="admin-tab" data-tab="usuarios">Usuários</button>
       <button class="admin-tab" data-tab="conta">Minha Conta</button>
     </div>
@@ -183,6 +184,17 @@
           </div>
           <div id="addReportMsg" class="form-msg" style="grid-column:1/-1"></div>
         </form>
+      </section>
+
+      <!-- Perfis de acesso -->
+      <section class="panel-section" data-panel="perfis">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Perfis de acesso</div>
+            <div class="panel-section__desc">Define o "teto" de funcionalidades permitido para cada papel. O card de Configurações de cada profissional (aba Usuários) nunca pode ir além do que estiver marcado aqui. O Super Administrador sempre tem acesso a tudo e não aparece nesta lista.</div>
+          </div>
+        </div>
+        <div id="rolePermsWrap"><div class="skeleton-loading">Carregando…</div></div>
       </section>
 
       <!-- Usuários -->

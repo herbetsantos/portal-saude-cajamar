@@ -20,9 +20,14 @@ export async function onRequestGet({ request, env, params }) {
   }
 
   const ceiling = await getRoleCeiling(env, target.role);
-  const { results } = await env.DB.prepare(
-    'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
-  ).bind(id).all();
+  let results;
+  try {
+    ({ results } = await env.DB.prepare(
+      'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
+    ).bind(id).all());
+  } catch {
+    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+  }
   const overrides = {};
   results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
 
@@ -63,13 +68,17 @@ export async function onRequestPut({ request, env, params }) {
   const ceiling = await getRoleCeiling(env, target.role);
   const wanted = body.permissions || {};
 
-  await env.DB.prepare('DELETE FROM user_permissions WHERE user_id = ?').bind(id).run();
-  for (const f of FEATURES) {
-    if (!ceiling[f.key]) continue; // nunca grava exceção acima do teto do papel
-    const enabled = wanted[f.key] ? 1 : 0;
-    await env.DB.prepare(
-      'INSERT INTO user_permissions (user_id, feature_key, enabled) VALUES (?, ?, ?)'
-    ).bind(id, f.key, enabled).run();
+  try {
+    await env.DB.prepare('DELETE FROM user_permissions WHERE user_id = ?').bind(id).run();
+    for (const f of FEATURES) {
+      if (!ceiling[f.key]) continue; // nunca grava exceção acima do teto do papel
+      const enabled = wanted[f.key] ? 1 : 0;
+      await env.DB.prepare(
+        'INSERT INTO user_permissions (user_id, feature_key, enabled) VALUES (?, ?, ?)'
+      ).bind(id, f.key, enabled).run();
+    }
+  } catch {
+    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
   }
 
   return json({ ok: true });

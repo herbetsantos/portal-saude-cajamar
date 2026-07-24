@@ -37,30 +37,41 @@ function allFalse() {
 }
 
 // Teto de funcionalidades de um papel (role). super_admin sempre tudo liberado.
+// Se a migração ainda não rodou (tabela não existe) ou o banco falhar por
+// qualquer motivo, cai pro "tudo liberado" em vez de quebrar a página inteira —
+// é assim que o site já se comportava antes desse recurso existir.
 export async function getRoleCeiling(env, role) {
   if (role === 'super_admin') return allTrue();
-  const { results } = await env.DB.prepare(
-    'SELECT feature_key, enabled FROM role_permissions WHERE role = ?'
-  ).bind(role).all();
-  const ceiling = allFalse();
-  results.forEach((r) => { if (isFeatureKey(r.feature_key)) ceiling[r.feature_key] = !!r.enabled; });
-  return ceiling;
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT feature_key, enabled FROM role_permissions WHERE role = ?'
+    ).bind(role).all();
+    const ceiling = allFalse();
+    results.forEach((r) => { if (isFeatureKey(r.feature_key)) ceiling[r.feature_key] = !!r.enabled; });
+    return ceiling;
+  } catch {
+    return allTrue();
+  }
 }
 
 // Permissões efetivas de um usuário: teto do papel + exceções individuais,
-// nunca ultrapassando o teto do papel.
+// nunca ultrapassando o teto do papel. Mesma lógica de fail-open acima.
 export async function getUserPermissions(env, user) {
   if (user.role === 'super_admin') return allTrue();
   const ceiling = await getRoleCeiling(env, user.role);
-  const { results } = await env.DB.prepare(
-    'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
-  ).bind(user.id).all();
-  const overrides = {};
-  results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
-  const effective = {};
-  FEATURE_KEYS.forEach((k) => {
-    const wanted = overrides.hasOwnProperty(k) ? overrides[k] : ceiling[k];
-    effective[k] = ceiling[k] && wanted; // nunca passa do teto do papel
-  });
-  return effective;
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
+    ).bind(user.id).all();
+    const overrides = {};
+    results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
+    const effective = {};
+    FEATURE_KEYS.forEach((k) => {
+      const wanted = overrides.hasOwnProperty(k) ? overrides[k] : ceiling[k];
+      effective[k] = ceiling[k] && wanted; // nunca passa do teto do papel
+    });
+    return effective;
+  } catch {
+    return ceiling;
+  }
 }

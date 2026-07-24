@@ -786,10 +786,13 @@ async function loadRolePermsTable() {
   const wrap = document.getElementById('rolePermsWrap');
   wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
 
-  const res = await fetch('/api/role-permissions', { credentials: 'same-origin' });
-  const data = await res.json();
-  if (!res.ok) {
-    wrap.innerHTML = `<p class="muted">${escapeHtml(data.error || 'Erro ao carregar.')}</p>`;
+  let data;
+  try {
+    const res = await fetch('/api/role-permissions', { credentials: 'same-origin' });
+    data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao carregar.');
+  } catch (err) {
+    wrap.innerHTML = `<p class="muted">Não foi possível carregar os perfis de acesso (${escapeHtml(err.message)}). Confira se a migração migration_permissions.sql já foi executada no banco D1.</p>`;
     return;
   }
 

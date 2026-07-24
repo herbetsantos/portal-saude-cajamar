@@ -11,7 +11,12 @@ export async function onRequestGet({ request, env }) {
   const { error } = await requireAdminPanel(request, env);
   if (error) return error;
 
-  const { results } = await env.DB.prepare('SELECT role, feature_key, enabled FROM role_permissions').all();
+  let results;
+  try {
+    ({ results } = await env.DB.prepare('SELECT role, feature_key, enabled FROM role_permissions').all());
+  } catch {
+    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+  }
 
   const map = {};
   ROLES.forEach((r) => {
@@ -42,15 +47,19 @@ export async function onRequestPut({ request, env }) {
 
   const permissions = body.permissions || {};
 
-  for (const role of ROLES) {
-    const featMap = permissions[role] || {};
-    for (const f of FEATURES) {
-      const enabled = featMap[f.key] ? 1 : 0;
-      await env.DB.prepare(
-        `INSERT INTO role_permissions (role, feature_key, enabled) VALUES (?, ?, ?)
-         ON CONFLICT (role, feature_key) DO UPDATE SET enabled = excluded.enabled`
-      ).bind(role, f.key, enabled).run();
+  try {
+    for (const role of ROLES) {
+      const featMap = permissions[role] || {};
+      for (const f of FEATURES) {
+        const enabled = featMap[f.key] ? 1 : 0;
+        await env.DB.prepare(
+          `INSERT INTO role_permissions (role, feature_key, enabled) VALUES (?, ?, ?)
+           ON CONFLICT (role, feature_key) DO UPDATE SET enabled = excluded.enabled`
+        ).bind(role, f.key, enabled).run();
+      }
     }
+  } catch {
+    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
   }
 
   return json({ ok: true });

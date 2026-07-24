@@ -10,16 +10,31 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const category = url.searchParams.get('category');
 
-  let query = 'SELECT id, category, title, url, description, sort_order, feature_key FROM links';
-  let stmt;
-  if (category) {
-    if (!CATEGORIES.includes(category)) return json({ error: 'Categoria inválida.' }, 400);
-    stmt = env.DB.prepare(query + ' WHERE category = ? ORDER BY sort_order ASC, id ASC').bind(category);
-  } else {
-    stmt = env.DB.prepare(query + ' ORDER BY category ASC, sort_order ASC, id ASC');
+  const baseQuery = 'SELECT id, category, title, url, description, sort_order, feature_key FROM links';
+  const fallbackQuery = 'SELECT id, category, title, url, description, sort_order FROM links';
+  const suffix = category
+    ? ' WHERE category = ? ORDER BY sort_order ASC, id ASC'
+    : ' ORDER BY category ASC, sort_order ASC, id ASC';
+
+  if (category && !CATEGORIES.includes(category)) return json({ error: 'Categoria inválida.' }, 400);
+
+  let results;
+  try {
+    const stmt = category
+      ? env.DB.prepare(baseQuery + suffix).bind(category)
+      : env.DB.prepare(baseQuery + suffix);
+    ({ results } = await stmt.all());
+  } catch {
+    // A migração migration_permissions.sql ainda não rodou (coluna feature_key
+    // não existe) — cai pra consulta antiga, sem quebrar o menu Ferramentas
+    // pra ninguém enquanto isso não é corrigido.
+    const stmt = category
+      ? env.DB.prepare(fallbackQuery + suffix).bind(category)
+      : env.DB.prepare(fallbackQuery + suffix);
+    ({ results } = await stmt.all());
+    results = results.map((r) => ({ ...r, feature_key: null }));
   }
 
-  const { results } = await stmt.all();
   return json({ links: results });
 }
 

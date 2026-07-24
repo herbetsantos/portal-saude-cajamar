@@ -1,3 +1,11 @@
+-- ⚠️ IMPORTANTE: rode este arquivo só UMA VEZ. A linha "ALTER TABLE links ADD
+-- COLUMN feature_key" dá erro se for executada de novo (SQLite não tem um
+-- jeito de dizer "adiciona essa coluna só se ela ainda não existir"). Se isso
+-- acontecer sem querer, o erro fica só nessa linha específica ("duplicate
+-- column name") — é inofensivo, mas pode interromper a execução das linhas
+-- seguintes do arquivo. Nesse caso, apague só essa linha do ALTER TABLE e
+-- rode o restante do arquivo de novo (os INSERT/UPDATE são seguros de repetir).
+--
 -- Migração aditiva: modelo de permissões por funcionalidade.
 -- NÃO contém nenhum DROP TABLE — pode rodar direto no D1 de produção, sem
 -- afetar as tabelas existentes (users, sessions, links, user_unidades, etc.).

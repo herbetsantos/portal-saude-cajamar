@@ -1,14 +1,25 @@
 // Lógica da página admin.html
 
 const CATEGORY_LABEL = { ferramenta: 'ferramenta', documento: 'documento', manual: 'manual' };
+// Funcionalidades que podem ser associadas a um item da categoria "ferramenta",
+// usadas para filtrar o menu FERRAMENTAS conforme as permissões do usuário
+// (ver Administração > Perfis de acesso e o card de Configurações do profissional).
+const FERRAMENTA_FEATURE_OPTIONS = [
+  { key: 'receituario', label: 'Receituário' },
+  { key: 'malotes', label: 'Malotes e Remessas' },
+  { key: 'facilitawhats', label: 'FacilitaWhats' },
+  { key: 'mensageiro_esus', label: 'Mensageiro eSUS' },
+];
 let currentUser = null;
 
-function openModal(html) {
+function openModal(html, wide) {
   document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalBox').classList.toggle('modal--wide', !!wide);
   document.getElementById('modalBackdrop').classList.add('is-open');
 }
 function closeModal() {
   document.getElementById('modalBackdrop').classList.remove('is-open');
+  document.getElementById('modalBox').classList.remove('modal--wide');
   document.getElementById('modalBox').innerHTML = '';
 }
 document.getElementById('modalBackdrop').addEventListener('click', (e) => {
@@ -55,10 +66,10 @@ async function loadUpdatesTable() {
             <td>${escapeHtml(fmtUpdateDate(it.published_at))}</td>
             <td>${escapeHtml(it.title)}</td>
             <td>${it.tag ? `<span class="badge badge--admin">${escapeHtml(it.tag)}</span>` : ''}</td>
-            <td class="row-actions">
+            <td class="actions-cell"><div class="row-actions">
               <button class="btn btn--outline btn--sm" data-edit-update="${it.id}">Editar</button>
               <button class="btn btn--danger btn--sm" data-delete-update="${it.id}">Excluir</button>
-            </td>
+            </div></td>
           </tr>
         `).join('') : `<tr><td colspan="4" style="color:var(--muted)">Nenhuma atualização publicada.</td></tr>`}
       </tbody>
@@ -209,10 +220,10 @@ async function loadSignupRequestsTable() {
             <td>${escapeHtml(it.name)}</td>
             <td>${escapeHtml(it.username)}</td>
             <td>${escapeHtml(it.unidade)}</td>
-            <td class="row-actions">
+            <td class="actions-cell"><div class="row-actions">
               <button class="btn btn--accent btn--sm" data-approve="${it.id}">Aprovar</button>
               <button class="btn btn--danger btn--sm" data-reject="${it.id}">Rejeitar</button>
-            </td>
+            </div></td>
           </tr>
         `).join('')}
       </tbody>
@@ -276,19 +287,20 @@ async function loadLinksTable(category) {
 
   wrap.innerHTML = `
     <table class="data-table">
-      <thead><tr><th>Título</th><th>URL</th><th>Ordem</th><th></th></tr></thead>
+      <thead><tr><th>Título</th><th>URL</th>${category === 'ferramenta' ? '<th>Funcionalidade</th>' : ''}<th>Ordem</th><th></th></tr></thead>
       <tbody>
         ${items.length ? items.map((it) => `
           <tr>
             <td>${escapeHtml(it.title)}</td>
             <td class="muted-url" title="${escapeAttr(it.url)}">${escapeHtml(it.url)}</td>
+            ${category === 'ferramenta' ? `<td>${escapeHtml((FERRAMENTA_FEATURE_OPTIONS.find((f) => f.key === it.feature_key) || {}).label || '—')}</td>` : ''}
             <td>${it.sort_order}</td>
-            <td class="row-actions">
+            <td class="actions-cell"><div class="row-actions">
               <button class="btn btn--outline btn--sm" data-edit="${it.id}">Editar</button>
               <button class="btn btn--danger btn--sm" data-delete="${it.id}">Excluir</button>
-            </td>
+            </div></td>
           </tr>
-        `).join('') : `<tr><td colspan="4" style="color:var(--muted)">Nenhum item cadastrado.</td></tr>`}
+        `).join('') : `<tr><td colspan="${category === 'ferramenta' ? 5 : 4}" style="color:var(--muted)">Nenhum item cadastrado.</td></tr>`}
       </tbody>
     </table>
     <form class="inline-form" data-add-form="${category}">
@@ -300,6 +312,14 @@ async function loadLinksTable(category) {
         <label>URL</label>
         <input type="url" data-field="url" placeholder="https://" required>
       </div>
+      ${category === 'ferramenta' ? `
+      <div class="field">
+        <label>Funcionalidade (para o filtro de permissões)</label>
+        <select data-field="feature_key">
+          <option value="">— Nenhuma —</option>
+          ${FERRAMENTA_FEATURE_OPTIONS.map((f) => `<option value="${f.key}">${escapeHtml(f.label)}</option>`).join('')}
+        </select>
+      </div>` : ''}
       <div class="field">
         <label>Ordem de exibição</label>
         <input type="number" data-field="sort_order" value="${items.length + 1}">
@@ -328,12 +348,14 @@ async function loadLinksTable(category) {
     e.preventDefault();
     const msgEl = addForm.querySelector('[data-add-msg]');
     msgEl.className = 'form-msg';
+    const featureField = addForm.querySelector('[data-field="feature_key"]');
     const payload = {
       category,
       title: addForm.querySelector('[data-field="title"]').value.trim(),
       url: addForm.querySelector('[data-field="url"]').value.trim(),
       sort_order: Number(addForm.querySelector('[data-field="sort_order"]').value) || 0,
       description: addForm.querySelector('[data-field="description"]').value.trim(),
+      feature_key: featureField ? (featureField.value || null) : null,
     };
     try {
       const res = await fetch('/api/links', {
@@ -365,6 +387,14 @@ function openEditLinkModal(item, category) {
       <label>URL</label>
       <input type="url" id="editUrl" value="${escapeAttr(item.url)}">
     </div>
+    ${category === 'ferramenta' ? `
+    <div class="field">
+      <label>Funcionalidade (para o filtro de permissões)</label>
+      <select id="editFeatureKey">
+        <option value="">— Nenhuma —</option>
+        ${FERRAMENTA_FEATURE_OPTIONS.map((f) => `<option value="${f.key}" ${item.feature_key === f.key ? 'selected' : ''}>${escapeHtml(f.label)}</option>`).join('')}
+      </select>
+    </div>` : ''}
     <div class="field">
       <label>Ordem de exibição</label>
       <input type="number" id="editOrder" value="${item.sort_order}">
@@ -381,6 +411,7 @@ function openEditLinkModal(item, category) {
   document.getElementById('cancelEditLink').addEventListener('click', closeModal);
   document.getElementById('saveEditLink').addEventListener('click', async () => {
     const msgEl = document.getElementById('editLinkMsg');
+    const featureField = document.getElementById('editFeatureKey');
     try {
       const res = await fetch(`/api/links/${item.id}`, {
         method: 'PUT',
@@ -392,6 +423,7 @@ function openEditLinkModal(item, category) {
           url: document.getElementById('editUrl').value.trim(),
           sort_order: Number(document.getElementById('editOrder').value) || 0,
           description: document.getElementById('editDesc').value.trim(),
+          feature_key: featureField ? (featureField.value || null) : null,
         }),
       });
       const data = await res.json();
@@ -442,11 +474,11 @@ async function loadReportGroupsTable() {
           <tr>
             <td>${escapeHtml(g.name)}</td>
             <td>${escapeHtml(g.description || '—')}</td>
-            <td class="row-actions">
+            <td class="actions-cell"><div class="row-actions">
               <button class="btn btn--outline btn--sm" data-edit-group="${g.id}">Editar</button>
               <button class="btn btn--outline btn--sm" data-group-reports="${g.id}">Relatórios deste grupo</button>
               <button class="btn btn--danger btn--sm" data-delete-group="${g.id}">Excluir</button>
-            </td>
+            </div></td>
           </tr>
         `).join('')}
       </tbody>
@@ -624,10 +656,10 @@ async function loadReportsTable() {
             <td>${escapeHtml(r.title)}</td>
             <td>${r.display_mode === 'new_tab' ? 'Nova aba' : 'Incorporado'}</td>
             <td>${r.sort_order}</td>
-            <td class="row-actions">
+            <td class="actions-cell"><div class="row-actions">
               <button class="btn btn--outline btn--sm" data-edit-report="${r.id}">Editar</button>
               <button class="btn btn--danger btn--sm" data-delete-report="${r.id}">Excluir</button>
-            </td>
+            </div></td>
           </tr>
         `).join('')}
       </tbody>
@@ -746,6 +778,76 @@ function confirmDeleteReport(id) {
   });
 }
 
+// ---------- Perfis de acesso (teto de funcionalidades por papel) ----------
+
+const ROLE_PERMS_LABEL = { user: 'Usuário', admin_unidade: 'Administrador de Unidade', admin: 'Administrador' };
+
+async function loadRolePermsTable() {
+  const wrap = document.getElementById('rolePermsWrap');
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+
+  const res = await fetch('/api/role-permissions', { credentials: 'same-origin' });
+  const data = await res.json();
+  if (!res.ok) {
+    wrap.innerHTML = `<p class="muted">${escapeHtml(data.error || 'Erro ao carregar.')}</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Funcionalidade</th>
+            ${data.roles.map((r) => `<th>${escapeHtml(ROLE_PERMS_LABEL[r] || r)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${data.features.map((f) => `
+            <tr>
+              <td>${escapeHtml(f.label)}</td>
+              ${data.roles.map((r) => `
+                <td style="text-align:center">
+                  <input type="checkbox" data-role="${r}" data-feature="${f.key}" ${data.permissions[r][f.key] ? 'checked' : ''} style="width:auto">
+                </td>
+              `).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div id="rolePermsMsg" class="form-msg" style="margin-top:12px"></div>
+    <div class="modal__actions" style="justify-content:flex-start;padding:0;border:none;margin-top:12px">
+      <button class="btn btn--accent btn--sm" id="saveRolePerms" type="button">Salvar alterações</button>
+    </div>
+  `;
+
+  document.getElementById('saveRolePerms').addEventListener('click', async () => {
+    const msgEl = document.getElementById('rolePermsMsg');
+    msgEl.className = 'form-msg';
+    const permissions = {};
+    data.roles.forEach((r) => { permissions[r] = {}; });
+    wrap.querySelectorAll('input[type=checkbox][data-role]').forEach((c) => {
+      permissions[c.dataset.role][c.dataset.feature] = c.checked;
+    });
+    try {
+      const putRes = await fetch('/api/role-permissions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ permissions }),
+      });
+      const putData = await putRes.json();
+      if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
+      msgEl.className = 'form-msg is-ok';
+      msgEl.textContent = 'Perfis de acesso atualizados com sucesso.';
+    } catch (err) {
+      msgEl.className = 'form-msg is-error';
+      msgEl.textContent = err.message;
+    }
+  });
+}
+
 // ---------- Usuários ----------
 
 function roleLabel(role) {
@@ -781,15 +883,13 @@ wrap.innerHTML = `
             <td>${escapeHtml(u.unidade || '—')}</td>
             <td><span class="badge ${roleBadgeClass(u.role)}">${roleLabel(u.role)}</span></td>
             <td>${u.active ? '<span class="badge badge--user">Ativo</span>' : '<span class="badge badge--inactive">Inativo</span>'}</td>
-            <td class="row-actions">
+            <td class="actions-cell"><div class="row-actions">
               ${locked ? '<span class="muted" style="font-size:12.5px">Só Super Admin</span>' : `
                 <button class="btn btn--outline btn--sm" data-edit-user="${u.id}">Editar</button>
-                ${u.role === 'user' ? `<button class="btn btn--outline btn--sm" data-unidades-user="${u.id}">Unidades (Receituário)</button>` : ''}
-                ${u.role === 'user' ? `<button class="btn btn--outline btn--sm" data-report-groups-user="${u.id}">Grupos de relatórios</button>` : ''}
-                ${u.role === 'admin_unidade' && canManageAdmins ? `<button class="btn btn--outline btn--sm" data-gestao-user="${u.id}">Unidades que gerencia</button>` : ''}
+                ${u.role !== 'super_admin' ? `<button class="btn btn--outline btn--sm" data-config-user="${u.id}">Configurações</button>` : ''}
                 <button class="btn btn--danger btn--sm" data-delete-user="${u.id}">Excluir</button>
               `}
-            </td>
+            </div></td>
           </tr>
         `;}).join('')}
       </tbody>
@@ -803,234 +903,207 @@ wrap.innerHTML = `
   wrap.querySelectorAll('[data-delete-user]').forEach((btn) => {
     btn.addEventListener('click', () => confirmDeleteUser(btn.dataset.deleteUser));
   });
-  wrap.querySelectorAll('[data-unidades-user]').forEach((btn) => {
-    const u = users.find((x) => String(x.id) === btn.dataset.unidadesUser);
-    btn.addEventListener('click', () => openUnidadesModal(u));
-  });
-  wrap.querySelectorAll('[data-gestao-user]').forEach((btn) => {
-    const u = users.find((x) => String(x.id) === btn.dataset.gestaoUser);
-    btn.addEventListener('click', () => openAdminUnidadesModal(u));
-  });
-  wrap.querySelectorAll('[data-report-groups-user]').forEach((btn) => {
-    const u = users.find((x) => String(x.id) === btn.dataset.reportGroupsUser);
-    btn.addEventListener('click', () => openReportGroupsUserModal(u));
+  wrap.querySelectorAll('[data-config-user]').forEach((btn) => {
+    const u = users.find((x) => String(x.id) === btn.dataset.configUser);
+    btn.addEventListener('click', () => openUserConfigModal(u));
   });
 }  
 
-// ---------- Unidades que um admin_unidade gerencia ----------
+// ---------- Configurações do profissional (card único) ----------
+// Substitui os antigos botões separados "Unidades (Receituário)", "Grupos de
+// relatórios" e "Unidades que gerencia" por um único card com todas as seções
+// relevantes para o papel do usuário, incluindo as funcionalidades habilitadas
+// (respeitando sempre o teto definido em Administração > Perfis de acesso).
 
-async function openAdminUnidadesModal(u) {
+async function openUserConfigModal(u) {
+  const canManageAdmins = currentUser && currentUser.role === 'super_admin';
+
   openModal(`
-    <h3>Unidades que ${escapeHtml(u.name)} gerencia</h3>
-    <p class="muted">${escapeHtml(u.username)} — Administrador de Unidade</p>
-    <div id="adminUnidadesMsg" class="form-msg"></div>
-    <div id="adminUnidadesList" class="skeleton-loading">Carregando…</div>
-    <div class="field" style="margin-top:10px">
-      <label for="novaUnidadeInput">Adicionar outra unidade (se ainda não estiver na lista)</label>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="novaUnidadeInput" style="flex:1" placeholder="Digite o nome exato da unidade">
-        <button type="button" id="addUnidadeBtn" class="btn btn--outline btn--sm">Adicionar</button>
-      </div>
-    </div>
+    <h3>Configurações de ${escapeHtml(u.name)}</h3>
+    <p class="muted">${escapeHtml(u.username)} — ${roleLabel(u.role)}</p>
+    <div id="userCfgMsg" class="form-msg"></div>
+    <div id="userCfgBody" class="skeleton-loading">Carregando…</div>
     <div class="modal__actions">
-      <button class="btn btn--outline btn--sm" id="cancelAdminUnidades" type="button">Cancelar</button>
-      <button class="btn btn--accent btn--sm" id="saveAdminUnidades" type="button">Salvar alterações</button>
+      <button class="btn btn--outline btn--sm" id="cancelUserCfg" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveUserCfg" type="button" style="display:none">Salvar alterações</button>
     </div>
-  `);
-  document.getElementById('cancelAdminUnidades').addEventListener('click', closeModal);
+  `, true);
+  document.getElementById('cancelUserCfg').addEventListener('click', closeModal);
 
-  const listEl = document.getElementById('adminUnidadesList');
-  const msgEl = document.getElementById('adminUnidadesMsg');
+  const body = document.getElementById('userCfgBody');
+  const msgEl = document.getElementById('userCfgMsg');
+  const saveBtn = document.getElementById('saveUserCfg');
 
-  const renderList = (todas, atribuidasSet) => {
-    listEl.innerHTML = todas.length ? `
-      <div class="checkbox-list">
-        ${todas.map((un) => `
-          <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
-            <input type="checkbox" value="${escapeAttr(un)}" ${atribuidasSet.has(un.toLowerCase()) ? 'checked' : ''} style="width:auto">
-            ${escapeHtml(un)}
-          </label>
-        `).join('')}
-      </div>
-    ` : `<p class="muted">Ainda não há nenhuma unidade cadastrada em nenhum usuário. Use o campo abaixo para adicionar.</p>`;
-  };
-
-  let todasUnidades = [];
-  let atribuidasSet = new Set();
+  const showUnidades = u.role === 'user';
+  const showReportGroups = u.role === 'user';
+  const showGestao = u.role === 'admin_unidade' && canManageAdmins;
 
   try {
-    const res = await fetch(`/api/users/${u.id}/admin-unidades`, { credentials: 'same-origin' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erro ao carregar unidades.');
-    todasUnidades = data.unidades || [];
-    atribuidasSet = new Set((data.atribuidas || []).map((x) => x.toLowerCase()));
-    renderList(todasUnidades, atribuidasSet);
-  } catch (err) {
-    listEl.innerHTML = '';
-    msgEl.className = 'form-msg is-error';
-    msgEl.textContent = err.message;
-    return;
-  }
+    const [permRes, unidadesRes, repGroupsRes, gestaoRes] = await Promise.all([
+      fetch(`/api/users/${u.id}/permissions`, { credentials: 'same-origin' }),
+      showUnidades ? fetch(`/api/users/${u.id}/unidades`, { credentials: 'same-origin' }) : Promise.resolve(null),
+      showReportGroups ? fetch(`/api/users/${u.id}/report-groups`, { credentials: 'same-origin' }) : Promise.resolve(null),
+      showGestao ? fetch(`/api/users/${u.id}/admin-unidades`, { credentials: 'same-origin' }) : Promise.resolve(null),
+    ]);
 
-  document.getElementById('addUnidadeBtn').addEventListener('click', () => {
-    const input = document.getElementById('novaUnidadeInput');
-    const valor = input.value.trim();
-    if (!valor) return;
-    if (!todasUnidades.some((x) => x.toLowerCase() === valor.toLowerCase())) {
-      todasUnidades.push(valor);
-    }
-    atribuidasSet.add(valor.toLowerCase());
-    renderList(todasUnidades, atribuidasSet);
-    input.value = '';
-  });
+    const permData = await permRes.json();
+    if (!permRes.ok) throw new Error(permData.error || 'Erro ao carregar funcionalidades.');
+    const unidadesData = unidadesRes ? await unidadesRes.json() : null;
+    if (unidadesRes && !unidadesRes.ok) throw new Error(unidadesData.error || 'Erro ao carregar unidades.');
+    const repGroupsData = repGroupsRes ? await repGroupsRes.json() : null;
+    if (repGroupsRes && !repGroupsRes.ok) throw new Error(repGroupsData.error || 'Erro ao carregar grupos.');
+    const gestaoData = gestaoRes ? await gestaoRes.json() : null;
+    if (gestaoRes && !gestaoRes.ok) throw new Error(gestaoData.error || 'Erro ao carregar unidades geridas.');
 
-  document.getElementById('saveAdminUnidades').addEventListener('click', async () => {
-    const selecionadas = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map((c) => c.value);
-    try {
-      const putRes = await fetch(`/api/users/${u.id}/admin-unidades`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ unidades: selecionadas }),
-      });
-      const putData = await putRes.json();
-      if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
-      closeModal();
-    } catch (err) {
-      msgEl.className = 'form-msg is-error';
-      msgEl.textContent = err.message;
-    }
-  });
-}
-
-// ---------- Unidades do Receituário por usuário ----------
-
-async function openUnidadesModal(u) {
-  openModal(`
-    <h3>Unidades do Receituário</h3>
-    <p class="muted">${escapeHtml(u.name)} (${escapeHtml(u.username)})</p>
-    <div id="unidadesMsg" class="form-msg"></div>
-    <div id="unidadesList" class="skeleton-loading">Carregando…</div>
-    <div class="modal__actions">
-      <button class="btn btn--outline btn--sm" id="cancelUnidades" type="button">Cancelar</button>
-      <button class="btn btn--accent btn--sm" id="saveUnidades" type="button" style="display:none">Salvar alterações</button>
-    </div>
-  `);
-  document.getElementById('cancelUnidades').addEventListener('click', closeModal);
-
-  const listEl = document.getElementById('unidadesList');
-  const saveBtn = document.getElementById('saveUnidades');
-  const msgEl = document.getElementById('unidadesMsg');
-
-  try {
-    const res = await fetch(`/api/users/${u.id}/unidades`, { credentials: 'same-origin' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erro ao carregar unidades.');
-
-    if (data.role === 'admin' || data.role === 'super_admin') {
-      listEl.innerHTML = `<p class="muted">Este usuário é administrador e já enxerga automaticamente <strong>todas</strong> as unidades. Não é necessário selecionar nada aqui.</p>`;
-      saveBtn.style.display = 'none';
-      return;
-    }
-
-    listEl.innerHTML = `
-      <div class="checkbox-list">
-        ${data.unidades.map((un) => `
-          <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
-            <input type="checkbox" value="${escapeAttr(un.code)}" ${un.atribuida ? 'checked' : ''} style="width:auto">
-            ${escapeHtml(un.nome)}
-          </label>
-        `).join('')}
+    // ---- Funcionalidades ----
+    const featuresHtml = `
+      <div class="panel-section__title" style="font-size:15px">Funcionalidades habilitadas</div>
+      <p class="muted" style="margin:2px 0 8px">Marque o que ${escapeHtml(u.name)} pode usar. Itens em cinza não estão liberados para o papel "${roleLabel(u.role)}" — ajuste isso em Administração &gt; Perfis de acesso.</p>
+      <div class="checkbox-list" id="userCfgFeatures">
+        ${permData.features.map((f) => {
+          const dentroDoTeto = !!permData.ceiling[f.key];
+          const marcado = dentroDoTeto && (permData.overrides.hasOwnProperty(f.key) ? permData.overrides[f.key] : true);
+          return `
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;${dentroDoTeto ? '' : 'color:var(--muted)'}">
+              <input type="checkbox" value="${f.key}" ${marcado ? 'checked' : ''} ${dentroDoTeto ? '' : 'disabled'} style="width:auto">
+              ${escapeHtml(f.label)}${dentroDoTeto ? '' : ' <span class="muted" style="font-size:12px">(fora do perfil)</span>'}
+            </label>
+          `;
+        }).join('')}
       </div>
-      <p class="muted" style="margin-top:8px">Marque as unidades que ${escapeHtml(u.name)} poderá selecionar ao emitir receitas.</p>
     `;
+
+    // ---- Unidades (Receituário) ----
+    let unidadesHtml = '';
+    if (showUnidades && unidadesData) {
+      unidadesHtml = `
+        <div class="panel-section__title" style="font-size:15px;margin-top:22px">Unidades (Receituário)</div>
+        <p class="muted" style="margin:2px 0 8px">Unidades que ${escapeHtml(u.name)} pode selecionar ao emitir receitas.</p>
+        <div class="checkbox-list" id="userCfgUnidades">
+          ${unidadesData.unidades.map((un) => `
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+              <input type="checkbox" value="${escapeAttr(un.code)}" ${un.atribuida ? 'checked' : ''} style="width:auto">
+              ${escapeHtml(un.nome)}
+            </label>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // ---- Grupos de relatórios ----
+    let repGroupsHtml = '';
+    if (showReportGroups && repGroupsData) {
+      repGroupsHtml = repGroupsData.groups.length ? `
+        <div class="panel-section__title" style="font-size:15px;margin-top:22px">Grupos de relatórios</div>
+        <p class="muted" style="margin:2px 0 8px">Grupos aos quais ${escapeHtml(u.name)} deve pertencer.</p>
+        <div class="checkbox-list" id="userCfgRepGroups">
+          ${repGroupsData.groups.map((g) => `
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+              <input type="checkbox" value="${g.id}" ${g.atribuido ? 'checked' : ''} style="width:auto">
+              ${escapeHtml(g.name)}
+            </label>
+          `).join('')}
+        </div>
+      ` : `
+        <div class="panel-section__title" style="font-size:15px;margin-top:22px">Grupos de relatórios</div>
+        <p class="muted">Nenhum grupo de acesso criado ainda. Crie um na aba Relatórios.</p>
+        <div id="userCfgRepGroups" style="display:none"></div>
+      `;
+    }
+
+    // ---- Unidades que gerencia (admin_unidade) ----
+    let gestaoHtml = '';
+    if (showGestao && gestaoData) {
+      gestaoHtml = `
+        <div class="panel-section__title" style="font-size:15px;margin-top:22px">Unidades que gerencia</div>
+        <p class="muted" style="margin:2px 0 8px">Unidades sob a gestão de ${escapeHtml(u.name)}.</p>
+        <div class="checkbox-list" id="userCfgGestao">
+          ${gestaoData.unidades.map((un) => `
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+              <input type="checkbox" value="${escapeAttr(un)}" ${gestaoData.atribuidas.map((a) => a.toLowerCase()).includes(un.toLowerCase()) ? 'checked' : ''} style="width:auto">
+              ${escapeHtml(un)}
+            </label>
+          `).join('')}
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label for="userCfgNovaUnidade">Adicionar outra unidade (se ainda não estiver na lista)</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="userCfgNovaUnidade" style="flex:1" placeholder="Digite o nome exato da unidade">
+            <button type="button" id="userCfgAddUnidadeBtn" class="btn btn--outline btn--sm">Adicionar</button>
+          </div>
+        </div>
+      `;
+    }
+
+    body.innerHTML = featuresHtml + unidadesHtml + repGroupsHtml + gestaoHtml;
     saveBtn.style.display = '';
+
+    if (showGestao && gestaoData) {
+      document.getElementById('userCfgAddUnidadeBtn').addEventListener('click', () => {
+        const input = document.getElementById('userCfgNovaUnidade');
+        const valor = input.value.trim();
+        if (!valor) return;
+        const list = document.getElementById('userCfgGestao');
+        const jaExiste = [...list.querySelectorAll('input[type=checkbox]')].some((c) => c.value.toLowerCase() === valor.toLowerCase());
+        if (!jaExiste) {
+          const label = document.createElement('label');
+          label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0';
+          label.innerHTML = `<input type="checkbox" value="${escapeAttr(valor)}" checked style="width:auto"> ${escapeHtml(valor)}`;
+          list.appendChild(label);
+        }
+        input.value = '';
+      });
+    }
+
     saveBtn.addEventListener('click', async () => {
-      const codigos = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map((c) => c.value);
+      msgEl.className = 'form-msg';
+      saveBtn.disabled = true;
       try {
-        const putRes = await fetch(`/api/users/${u.id}/unidades`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ unidades: codigos }),
-        });
-        const putData = await putRes.json();
-        if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
+        // Funcionalidades — só envia chaves dentro do teto do papel.
+        const featureChecks = [...document.getElementById('userCfgFeatures').querySelectorAll('input[type=checkbox]:not([disabled])')];
+        const permissionsPayload = {};
+        featureChecks.forEach((c) => { permissionsPayload[c.value] = c.checked; });
+        await putJson(`/api/users/${u.id}/permissions`, { permissions: permissionsPayload });
+
+        if (showUnidades) {
+          const codigos = [...document.getElementById('userCfgUnidades').querySelectorAll('input[type=checkbox]:checked')].map((c) => c.value);
+          await putJson(`/api/users/${u.id}/unidades`, { unidades: codigos });
+        }
+        if (showReportGroups && repGroupsData.groups.length) {
+          const groupIds = [...document.getElementById('userCfgRepGroups').querySelectorAll('input[type=checkbox]:checked')].map((c) => Number(c.value));
+          await putJson(`/api/users/${u.id}/report-groups`, { groupIds });
+        }
+        if (showGestao) {
+          const unidadesGeridas = [...document.getElementById('userCfgGestao').querySelectorAll('input[type=checkbox]:checked')].map((c) => c.value);
+          await putJson(`/api/users/${u.id}/admin-unidades`, { unidades: unidadesGeridas });
+        }
+
         closeModal();
       } catch (err) {
         msgEl.className = 'form-msg is-error';
         msgEl.textContent = err.message;
+      } finally {
+        saveBtn.disabled = false;
       }
     });
   } catch (err) {
-    listEl.innerHTML = '';
+    body.innerHTML = '';
     msgEl.className = 'form-msg is-error';
     msgEl.textContent = err.message;
   }
 }
 
-async function openReportGroupsUserModal(u) {
-  openModal(`
-    <h3>Grupos de acesso a relatórios</h3>
-    <p class="muted">${escapeHtml(u.name)} (${escapeHtml(u.username)})</p>
-    <div id="repGroupsMsg" class="form-msg"></div>
-    <div id="repGroupsList" class="skeleton-loading">Carregando…</div>
-    <div class="modal__actions">
-      <button class="btn btn--outline btn--sm" id="cancelRepGroups" type="button">Cancelar</button>
-      <button class="btn btn--accent btn--sm" id="saveRepGroups" type="button" style="display:none">Salvar alterações</button>
-    </div>
-  `);
-  document.getElementById('cancelRepGroups').addEventListener('click', closeModal);
-
-  const listEl = document.getElementById('repGroupsList');
-  const saveBtn = document.getElementById('saveRepGroups');
-  const msgEl = document.getElementById('repGroupsMsg');
-
-  try {
-    const res = await fetch(`/api/users/${u.id}/report-groups`, { credentials: 'same-origin' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erro ao carregar grupos.');
-
-    if (data.role === 'admin' || data.role === 'super_admin') {
-      listEl.innerHTML = `<p class="muted">Este usuário é administrador e já enxerga automaticamente <strong>todos</strong> os relatórios. Não é necessário selecionar nada aqui.</p>`;
-      saveBtn.style.display = 'none';
-      return;
-    }
-
-    listEl.innerHTML = data.groups.length ? `
-      <div class="checkbox-list">
-        ${data.groups.map((g) => `
-          <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
-            <input type="checkbox" value="${g.id}" ${g.atribuido ? 'checked' : ''} style="width:auto">
-            ${escapeHtml(g.name)}
-          </label>
-        `).join('')}
-      </div>
-      <p class="muted" style="margin-top:8px">Marque os grupos aos quais ${escapeHtml(u.name)} deve pertencer.</p>
-    ` : `<p class="muted">Nenhum grupo de acesso criado ainda. Crie um na aba Relatórios.</p>`;
-    saveBtn.style.display = data.groups.length ? '' : 'none';
-    saveBtn.addEventListener('click', async () => {
-      const groupIds = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map((c) => Number(c.value));
-      try {
-        const putRes = await fetch(`/api/users/${u.id}/report-groups`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ groupIds }),
-        });
-        const putData = await putRes.json();
-        if (!putRes.ok) throw new Error(putData.error || 'Erro ao salvar.');
-        closeModal();
-      } catch (err) {
-        msgEl.className = 'form-msg is-error';
-        msgEl.textContent = err.message;
-      }
-    });
-  } catch (err) {
-    listEl.innerHTML = '';
-    msgEl.className = 'form-msg is-error';
-    msgEl.textContent = err.message;
-  }
+// Pequeno atalho para PUT JSON, usado pelo card de Configurações do profissional.
+async function putJson(url, payload) {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
+  return data;
 }
 
 function openEditUserModal(u) {
@@ -1211,6 +1284,11 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
 
   document.getElementById('adminShell').style.display = 'flex';
 
+  if (currentUser.role !== 'super_admin') {
+    const perfisTab = document.querySelector('.admin-tab[data-tab="perfis"]');
+    if (perfisTab) perfisTab.style.display = 'none';
+  }
+
   if (currentUser.role === 'admin_unidade') {
     // Admin de unidade só cuida de usuários — esconde as demais abas.
     document.querySelectorAll('.admin-tab').forEach((tab) => {
@@ -1231,6 +1309,9 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
     loadLinksTable('manual');
     loadReportGroupsTable();
     loadReportsTable();
+  }
+  if (currentUser.role === 'super_admin') {
+    loadRolePermsTable();
   }
   loadSignupRequestsTable();
   loadUsersTable();

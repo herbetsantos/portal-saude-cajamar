@@ -1,0 +1,57 @@
+import { json, requireAdminPanel, requireSuperAdmin } from './_utils.js';
+import { FEATURES, isFeatureKey } from './_permissions.js';
+
+// super_admin não entra nessa lista: sempre tem tudo liberado e não é editável.
+const ROLES = ['user', 'admin_unidade', 'admin'];
+const ROLE_SET = new Set(ROLES);
+
+// GET: qualquer papel do painel admin pode ver o teto vigente (é usado para
+// desenhar o card de Configurações do profissional). Só o Super Admin edita.
+export async function onRequestGet({ request, env }) {
+  const { error } = await requireAdminPanel(request, env);
+  if (error) return error;
+
+  const { results } = await env.DB.prepare('SELECT role, feature_key, enabled FROM role_permissions').all();
+
+  const map = {};
+  ROLES.forEach((r) => {
+    map[r] = {};
+    FEATURES.forEach((f) => { map[r][f.key] = false; });
+  });
+  results.forEach((row) => {
+    if (ROLE_SET.has(row.role) && isFeatureKey(row.feature_key)) {
+      map[row.role][row.feature_key] = !!row.enabled;
+    }
+  });
+
+  return json({ features: FEATURES, roles: ROLES, permissions: map });
+}
+
+// PUT: substitui o teto de todos os papéis de uma vez.
+// body: { permissions: { user: { receituario: true, ... }, admin_unidade: {...}, admin: {...} } }
+export async function onRequestPut({ request, env }) {
+  const { error } = await requireSuperAdmin(request, env);
+  if (error) return error;
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Requisição inválida.' }, 400);
+  }
+
+  const permissions = body.permissions || {};
+
+  for (const role of ROLES) {
+    const featMap = permissions[role] || {};
+    for (const f of FEATURES) {
+      const enabled = featMap[f.key] ? 1 : 0;
+      await env.DB.prepare(
+        `INSERT INTO role_permissions (role, feature_key, enabled) VALUES (?, ?, ?)
+         ON CONFLICT (role, feature_key) DO UPDATE SET enabled = excluded.enabled`
+      ).bind(role, f.key, enabled).run();
+    }
+  }
+
+  return json({ ok: true });
+}

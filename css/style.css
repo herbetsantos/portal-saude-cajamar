@@ -52,14 +52,23 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 .topbar {
   background: var(--primary);
   height: 68px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
   position: sticky;
   top: 0;
   z-index: 100;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+/* Em telas largas, o conteúdo não gruda mais nas bordas — fica centralizado
+   com a MESMA largura e respiro lateral da área de conteúdo (.page), pra
+   logo/menu ficarem alinhados verticalmente com o título e o resto da página. */
+.topbar__inner {
+  max-width: 1400px;
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
 }
 
 .topbar__left {
@@ -772,7 +781,7 @@ table.data-table {
   .admin-tabs { flex-direction: row; overflow-x: auto; width: 100%; position: static; }
   .inline-form { grid-template-columns: 1fr; }
   .topbar__left { gap: 10px; }
-  .topbar { padding: 0 12px; }
+  .topbar__inner { padding: 0 16px; }
 
   /* Menu hambúrguer */
   .hamburger-btn { display: flex; }

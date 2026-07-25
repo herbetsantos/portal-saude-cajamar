@@ -1,77 +1,229 @@
-// Modelo de permissões por funcionalidade.
-//
-// - role_permissions define o "teto" (máximo permitido) por papel — editável
-//   em Administração > Perfis de acesso (só Super Admin edita).
-// - user_permissions guarda exceções por profissional DENTRO desse teto —
-//   nunca pode ultrapassar o que o papel do usuário permite.
-// - super_admin sempre tem acesso a tudo e não passa por nenhuma das duas
-//   tabelas (evita a possibilidade de alguém se autobloquear por engano).
+// Funções compartilhadas entre as páginas do portal (exceto login.html).
 
-export const FEATURES = [
-  { key: 'receituario', label: 'Receituário' },
-  { key: 'malotes', label: 'Malotes e Remessas' },
-  { key: 'facilitawhats', label: 'FacilitaWhats' },
-  { key: 'mensageiro_esus', label: 'Mensageiro eSUS' },
-  { key: 'documentos', label: 'Documentos Úteis' },
-  { key: 'manuais', label: 'Manuais de Uso' },
-  { key: 'relatorios', label: 'Relatórios' },
-  { key: 'administracao', label: 'Administração' },
-];
+// Topbar única, compartilhada por todas as páginas. Antes esse HTML estava
+// duplicado em cada arquivo .html; agora existe só aqui. Cada página só
+// precisa ter <div id="app-topbar"></div> no lugar do <header> antigo.
+const TOPBAR_HTML = `
+<header class="topbar">
+  <div class="topbar__left">
+    <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Abrir menu" aria-expanded="false">
+      <span class="hamburger-icon"></span>
+    </button>
+    <a class="brand" href="/portal.html"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></a>
+    <nav class="nav" id="mainNav">
+      <div class="nav__item">
+        <button class="nav__link" id="ferramentasTrigger" type="button">
+          <span class="label-text">FERRAMENTAS</span><span class="nav__caret"></span>
+        </button>
+        <div class="submenu" id="ferramentasMenu"></div>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="documentos" href="/documentos.html"><span class="label-text">DOCUMENTOS ÚTEIS</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="manuais" href="/manuais.html"><span class="label-text">MANUAIS DE USO</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="relatorios" id="relatoriosLink" href="/relatorios.html" style="display:none"><span class="label-text">RELATÓRIOS</span></a>
+      </div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="admin" id="adminLink" href="/admin.html" style="display:none"><span class="label-text">ADMINISTRAÇÃO</span></a>
+      </div>
+      <div class="nav__mobile-foot">
+        <div class="user-chip" id="userChipMobile"></div>
+        <button class="btn btn--outline btn--sm" id="logoutBtnMobile" type="button">Sair</button>
+      </div>
+    </nav>
+  </div>
+  <div class="topbar__right">
+    <div class="user-chip" id="userChip"></div>
+    <button class="btn btn--ghost-light btn--sm" id="logoutBtn" type="button">Sair</button>
+  </div>
+</header>`;
 
-export const FEATURE_KEYS = FEATURES.map((f) => f.key);
-const FEATURE_KEY_SET = new Set(FEATURE_KEYS);
-
-export function isFeatureKey(key) {
-  return FEATURE_KEY_SET.has(key);
-}
-
-function allTrue() {
-  const m = {};
-  FEATURE_KEYS.forEach((k) => { m[k] = true; });
-  return m;
-}
-function allFalse() {
-  const m = {};
-  FEATURE_KEYS.forEach((k) => { m[k] = false; });
-  return m;
-}
-
-// Teto de funcionalidades de um papel (role). super_admin sempre tudo liberado.
-// Se a migração ainda não rodou (tabela não existe) ou o banco falhar por
-// qualquer motivo, cai pro "tudo liberado" em vez de quebrar a página inteira —
-// é assim que o site já se comportava antes desse recurso existir.
-export async function getRoleCeiling(env, role) {
-  if (role === 'super_admin') return allTrue();
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT feature_key, enabled FROM role_permissions WHERE role = ?'
-    ).bind(role).all();
-    const ceiling = allFalse();
-    results.forEach((r) => { if (isFeatureKey(r.feature_key)) ceiling[r.feature_key] = !!r.enabled; });
-    return ceiling;
-  } catch {
-    return allTrue();
+// Injeta o topbar e marca visualmente o item ativo.
+// activeKey: 'documentos' | 'manuais' | 'admin' | 'ferramentas' (usado pelas
+// páginas de ferramenta, ex. FacilitaWhats, Guias e Malotes) | undefined (home).
+function renderTopbar(activeKey) {
+  const mount = document.getElementById('app-topbar');
+  if (!mount) return;
+  mount.innerHTML = TOPBAR_HTML;
+  if (activeKey === 'ferramentas') {
+    document.getElementById('ferramentasTrigger').style.background = 'rgba(255,255,255,0.14)';
+  } else if (activeKey) {
+    const el = mount.querySelector(`[data-nav="${activeKey}"]`);
+    if (el) el.style.background = 'rgba(255,255,255,0.14)';
   }
 }
 
-// Permissões efetivas de um usuário: teto do papel + exceções individuais,
-// nunca ultrapassando o teto do papel. Mesma lógica de fail-open acima.
-export async function getUserPermissions(env, user) {
-  if (user.role === 'super_admin') return allTrue();
-  const ceiling = await getRoleCeiling(env, user.role);
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
-    ).bind(user.id).all();
-    const overrides = {};
-    results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
-    const effective = {};
-    FEATURE_KEYS.forEach((k) => {
-      const wanted = overrides.hasOwnProperty(k) ? overrides[k] : ceiling[k];
-      effective[k] = ceiling[k] && wanted; // nunca passa do teto do papel
-    });
-    return effective;
-  } catch {
-    return ceiling;
+// Define o favicon da aba do navegador (chamado uma vez, em todas as páginas
+// que carregam este script, já que o <link rel="icon"> não é duplicado no HTML).
+function setFavicon(url) {
+  let link = document.querySelector("link[rel~='icon']");
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
   }
+  link.href = url;
+}
+
+async function requireLogin() {
+  try {
+    const res = await fetch('/api/me', { credentials: 'same-origin' });
+    if (!res.ok) {
+      window.location.href = '/login.html';
+      return null;
+    }
+    const data = await res.json();
+    return data.user;
+  } catch {
+    window.location.href = '/login.html';
+    return null;
+  }
+}
+
+function initials(name) {
+  return (name || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('');
+}
+
+function renderTopbarUser(user) {
+  const chipHtml = `
+    <span class="user-chip__avatar">${initials(user.name)}</span>
+    <span>${user.name}</span>
+  `;
+  const chip = document.getElementById('userChip');
+  if (chip) chip.innerHTML = chipHtml;
+  const chipMobile = document.getElementById('userChipMobile');
+  if (chipMobile) chipMobile.innerHTML = chipHtml;
+  const perms = user.permissions || {};
+  const adminLink = document.getElementById('adminLink');
+  if (adminLink) adminLink.style.display = perms.administracao ? '' : 'none';
+
+  // Documentos Úteis / Manuais de Uso ficam visíveis por padrão; só escondemos
+  // se a permissão vier explicitamente desligada (evita esconder tudo caso a
+  // migração de permissões ainda não tenha rodado no ambiente).
+  const docLink = document.querySelector('[data-nav="documentos"]');
+  if (docLink) docLink.style.display = perms.documentos === false ? 'none' : '';
+  const manLink = document.querySelector('[data-nav="manuais"]');
+  if (manLink) manLink.style.display = perms.manuais === false ? 'none' : '';
+}
+
+function setupLogout() {
+  const doLogout = async () => {
+    await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+    window.location.href = '/login.html';
+  };
+  const btn = document.getElementById('logoutBtn');
+  if (btn) btn.addEventListener('click', doLogout);
+  const btnMobile = document.getElementById('logoutBtnMobile');
+  if (btnMobile) btnMobile.addEventListener('click', doLogout);
+}
+
+function setupMobileNav() {
+  const hamburger = document.getElementById('hamburgerBtn');
+  const nav = document.getElementById('mainNav');
+  if (!hamburger || !nav) return;
+
+  const closeNav = () => {
+    nav.classList.remove('is-mobile-open');
+    hamburger.classList.remove('is-open');
+    hamburger.setAttribute('aria-expanded', 'false');
+  };
+
+  hamburger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = !nav.classList.contains('is-mobile-open');
+    nav.classList.toggle('is-mobile-open', willOpen);
+    hamburger.classList.toggle('is-open', willOpen);
+    hamburger.setAttribute('aria-expanded', String(willOpen));
+  });
+
+  // Fecha o menu mobile ao navegar para uma página nova (links diretos)
+  // ou ao tocar num item da lista de Ferramentas (abre em nova aba).
+  nav.addEventListener('click', (e) => {
+    if (e.target.closest('a.nav__link, .submenu__link')) closeNav();
+  });
+
+  // Fecha o menu mobile ao clicar fora dele.
+  document.addEventListener('click', (e) => {
+    if (!nav.contains(e.target) && e.target !== hamburger) closeNav();
+  });
+}
+
+function setupFerramentasDropdown() {
+  const trigger = document.getElementById('ferramentasTrigger');
+  const menu = document.getElementById('ferramentasMenu');
+  if (!trigger || !menu) return;
+
+  const close = () => { trigger.classList.remove('is-open'); menu.classList.remove('is-open'); };
+  const toggle = () => { trigger.classList.toggle('is-open'); menu.classList.toggle('is-open'); };
+
+  trigger.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+  document.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+}
+
+async function loadFerramentasMenu(perms) {
+  const menu = document.getElementById('ferramentasMenu');
+  if (!menu) return;
+  try {
+    const res = await fetch('/api/links?category=ferramenta', { credentials: 'same-origin' });
+    const data = await res.json();
+    let links = data.links || [];
+    // Um link sem feature_key associado (ainda não configurado) continua
+    // aparecendo para todos, pra não sumir ferramenta nenhuma sem querer.
+    if (perms) {
+      links = links.filter((l) => !l.feature_key || perms[l.feature_key] !== false);
+    }
+    menu.innerHTML = links.length
+      ? links.map((l) => `
+          <a class="submenu__link" href="${escapeAttr(l.url)}">
+            <span class="cross">✚</span>${escapeHtml(l.title)}
+          </a>`).join('')
+      : `<div class="submenu__link" style="color:var(--muted)">Nenhuma ferramenta cadastrada</div>`;
+  } catch {
+    menu.innerHTML = `<div class="submenu__link" style="color:var(--muted)">Não foi possível carregar</div>`;
+  }
+}
+
+async function loadRelatoriosNav(perms) {
+  const link = document.getElementById('relatoriosLink');
+  if (!link) return;
+  if (perms && perms.relatorios === false) {
+    link.style.display = 'none';
+    return;
+  }
+  try {
+    const res = await fetch('/api/my-reports', { credentials: 'same-origin' });
+    const data = await res.json();
+    const reports = data.reports || [];
+    link.style.display = reports.length > 0 ? '' : 'none';
+  } catch {
+    link.style.display = 'none';
+  }
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(str) { return escapeHtml(str); }
+
+async function initPortalChrome(activeKey) {
+  setFavicon('/assets/favicon.png');
+  renderTopbar(activeKey);
+  const user = await requireLogin();
+  if (!user) return null;
+  renderTopbarUser(user);
+  setupLogout();
+  setupMobileNav();
+  setupFerramentasDropdown();
+  loadFerramentasMenu(user.permissions);
+  loadRelatoriosNav(user.permissions);
+  return user;
 }

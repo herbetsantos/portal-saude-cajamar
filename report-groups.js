@@ -14,12 +14,19 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const name = (body.name || '').trim();
+  const title = (body.title || '').trim();
   const description = (body.description || '').trim();
-  if (!name) return json({ error: 'Informe o nome do grupo.' }, 400);
+  const embedUrl = (body.embed_url || '').trim();
+  const displayMode = body.display_mode === 'new_tab' ? 'new_tab' : 'embed';
+  const sortOrder = Number(body.sort_order) || 0;
 
-  await env.DB.prepare('UPDATE report_groups SET name = ?, description = ? WHERE id = ?')
-    .bind(name, description || null, id)
+  if (!title) return json({ error: 'Informe o título do relatório.' }, 400);
+  if (!embedUrl) return json({ error: 'Informe o link do relatório.' }, 400);
+
+  await env.DB.prepare(
+    'UPDATE reports SET title = ?, description = ?, embed_url = ?, display_mode = ?, sort_order = ? WHERE id = ?'
+  )
+    .bind(title, description || null, embedUrl, displayMode, sortOrder, id)
     .run();
 
   return json({ ok: true });
@@ -32,7 +39,7 @@ export async function onRequestDelete({ request, env, params }) {
   const id = Number(params.id);
   if (!id) return json({ error: 'ID inválido.' }, 400);
 
-  await env.DB.prepare('DELETE FROM report_groups WHERE id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM reports WHERE id = ?').bind(id).run();
 
   return json({ ok: true });
 }

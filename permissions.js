@@ -1,51 +1,55 @@
-import { json, requireAdmin } from '../../_utils.js';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuais de Uso — Portal Saúde Cajamar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
 
-// GET: lista todos os relatórios cadastrados + quais estão neste grupo.
-export async function onRequestGet({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
-  if (error) return error;
+<div id="app-topbar"></div>
 
-  const id = Number(params.id);
-  if (!id) return json({ error: 'ID inválido.' }, 400);
+<main class="page">
+  <div class="page__header">
+    <div class="eyebrow">Instruções</div>
+    <h1 class="page__title">Manuais de Uso</h1>
+    <p class="page__subtitle">Passo a passo e orientações de uso dos sistemas e ferramentas do portal.</p>
+  </div>
 
-  const { results: todos } = await env.DB.prepare(
-    'SELECT id, title FROM reports ORDER BY sort_order ASC, title ASC'
-  ).all();
+  <div id="listArea">
+    <div class="skeleton-loading">Carregando manuais…</div>
+  </div>
+</main>
 
-  const { results: atribuidos } = await env.DB.prepare(
-    'SELECT report_id FROM report_group_reports WHERE group_id = ?'
-  ).bind(id).all();
-  const atribuidosSet = new Set(atribuidos.map((r) => r.report_id));
+<script src="/js/common.js"></script>
+<script>
+  (async () => {
+    const user = await initPortalChrome('manuais');
+    if (!user) return;
 
-  return json({
-    reports: todos.map((r) => ({ ...r, atribuido: atribuidosSet.has(r.id) })),
-  });
-}
-
-// PUT: substitui a lista de relatórios que este grupo pode ver.
-// body: { reportIds: [1, 2, 3] }
-export async function onRequestPut({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
-  if (error) return error;
-
-  const id = Number(params.id);
-  if (!id) return json({ error: 'ID inválido.' }, 400);
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: 'Requisição inválida.' }, 400);
-  }
-
-  const reportIds = Array.isArray(body.reportIds) ? body.reportIds.map(Number).filter(Boolean) : [];
-
-  await env.DB.prepare('DELETE FROM report_group_reports WHERE group_id = ?').bind(id).run();
-  for (const reportId of reportIds) {
-    await env.DB.prepare('INSERT INTO report_group_reports (group_id, report_id) VALUES (?, ?)')
-      .bind(id, reportId)
-      .run();
-  }
-
-  return json({ ok: true });
-}
+    const area = document.getElementById('listArea');
+    try {
+      const res = await fetch('/api/links?category=manual', { credentials: 'same-origin' });
+      const data = await res.json();
+      const items = data.links || [];
+      area.innerHTML = items.length
+        ? `<div class="doc-list">${items.map((it) => `
+            <a class="doc-row" href="${escapeAttr(it.url)}" target="${it.open_mode === '_self' ? '_self' : '_blank'}" rel="noopener">
+              <span class="cross">✚</span>
+              <div style="flex:1">
+                <div class="doc-row__title">${escapeHtml(it.title)}</div>
+                ${it.description ? `<div class="doc-row__desc">${escapeHtml(it.description)}</div>` : ''}
+              </div>
+            </a>
+          `).join('')}</div>`
+        : `<div class="empty-state">Nenhum manual cadastrado ainda.</div>`;
+    } catch {
+      area.innerHTML = `<div class="empty-state">Não foi possível carregar os manuais.</div>`;
+    }
+  })();
+</script>
+</body>
+</html>

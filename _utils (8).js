@@ -52,23 +52,14 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 .topbar {
   background: var(--primary);
   height: 68px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-}
-
-/* Em telas largas, o conteúdo não gruda mais nas bordas — fica centralizado
-   com uma largura confortável, enquanto a faixa azul de fundo continua
-   esticando de ponta a ponta. */
-.topbar__inner {
-  max-width: 1360px;
-  height: 100%;
-  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }
 
 .topbar__left {
@@ -781,7 +772,7 @@ table.data-table {
   .admin-tabs { flex-direction: row; overflow-x: auto; width: 100%; position: static; }
   .inline-form { grid-template-columns: 1fr; }
   .topbar__left { gap: 10px; }
-  .topbar__inner { padding: 0 12px; }
+  .topbar { padding: 0 12px; }
 
   /* Menu hambúrguer */
   .hamburger-btn { display: flex; }

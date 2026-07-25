@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Relatórios — Portal Saúde Cajamar</title>
+<title>Apoio - Atenção Primária à Saúde Cajamar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
@@ -14,87 +14,50 @@
 
 <main class="page">
   <div class="page__header">
-    <div class="eyebrow">Indicadores</div>
-    <h1 class="page__title">Relatórios</h1>
-    <p class="page__subtitle">Dashboards de produtividade e indicadores da Secretaria de Saúde.</p>
+    <div class="eyebrow">Portal interno</div>
+    <h1 class="page__title">Atualizações</h1>
+    <p class="page__subtitle">Avisos e novidades da Secretaria de Saúde de Cajamar. Ferramentas, documentos e manuais ficam no menu superior.</p>
   </div>
 
-  <div id="listArea">
-    <div class="skeleton-loading">Carregando relatórios…</div>
-  </div>
-
-  <div id="embedArea" style="display:none">
-    <a href="#" id="backToList" class="report-back-link">← Voltar aos relatórios</a>
-    <div class="report-frame-wrap">
-      <iframe id="reportFrame" class="report-frame" src="" title="Relatório" allowfullscreen></iframe>
-    </div>
+  <div id="updatesFeed">
+    <div class="skeleton-loading">Carregando atualizações…</div>
   </div>
 </main>
 
 <script src="/js/common.js"></script>
 <script>
+  function formatUpdateDate(iso) {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return (y && m && d) ? `${d}/${m}/${y}` : iso;
+  }
+
   (async () => {
-    const user = await initPortalChrome('relatorios');
+    const user = await initPortalChrome();
+    // Home não tem item de menu correspondente destacado.
     if (!user) return;
 
-    const listArea = document.getElementById('listArea');
-    const embedArea = document.getElementById('embedArea');
-    const frame = document.getElementById('reportFrame');
-
-    document.getElementById('backToList').addEventListener('click', (e) => {
-      e.preventDefault();
-      frame.src = '';
-      embedArea.style.display = 'none';
-      listArea.style.display = '';
-      history.replaceState(null, '', '/relatorios.html');
-    });
-
-    let items = [];
-
-    function showEmbed(report) {
-      frame.src = report.embed_url;
-      listArea.style.display = 'none';
-      embedArea.style.display = '';
-      history.replaceState(null, '', `/relatorios.html?id=${report.id}`);
-    }
-
-    function render() {
-      listArea.innerHTML = items.length
-        ? `<div class="doc-list">${items.map((it) => `
-            <a class="doc-row" href="${escapeAttr(it.embed_url)}" ${it.display_mode === 'new_tab' ? 'target="_blank" rel="noopener"' : ''} data-report="${it.id}">
-              <span class="cross">✚</span>
-              <div style="flex:1">
-                <div class="doc-row__title">${escapeHtml(it.title)}</div>
-                ${it.description ? `<div class="doc-row__desc">${escapeHtml(it.description)}</div>` : ''}
-              </div>
-            </a>
-          `).join('')}</div>`
-        : `<div class="empty-state">Nenhum relatório disponível para o seu usuário no momento.</div>`;
-
-      listArea.querySelectorAll('[data-report]').forEach((row) => {
-        const report = items.find((it) => String(it.id) === row.dataset.report);
-        if (!report || report.display_mode === 'new_tab') return;
-        row.addEventListener('click', (e) => {
-          e.preventDefault();
-          showEmbed(report);
-        });
-      });
-    }
-
+    const feed = document.getElementById('updatesFeed');
     try {
-      const res = await fetch('/api/my-reports', { credentials: 'same-origin' });
+      const res = await fetch('/api/updates', { credentials: 'same-origin' });
       const data = await res.json();
-      items = data.reports || [];
-      render();
+      const items = data.updates || [];
 
-      const params = new URLSearchParams(window.location.search);
-      const requestedId = params.get('id');
-      if (requestedId) {
-        const report = items.find((it) => String(it.id) === requestedId && it.display_mode !== 'new_tab');
-        if (report) showEmbed(report);
-      }
+      feed.innerHTML = items.length
+        ? `<div class="updates-list">${items.map((u) => `
+            <article class="update-card">
+              <div class="update-card__head">
+                ${u.tag ? `<span class="badge badge--admin">${escapeHtml(u.tag)}</span>` : ''}
+                <time class="update-card__date">${escapeHtml(formatUpdateDate(u.published_at))}</time>
+              </div>
+              <h2 class="update-card__title">${escapeHtml(u.title)}</h2>
+              <p class="update-card__body">${escapeHtml(u.body)}</p>
+              ${u.link_url ? `<a class="update-card__link" href="${escapeAttr(u.link_url)}" target="_blank" rel="noopener">${escapeHtml(u.link_label || 'Saiba mais')} →</a>` : ''}
+            </article>
+          `).join('')}</div>`
+        : `<div class="empty-state">Nenhuma atualização publicada ainda.</div>`;
     } catch {
-      listArea.innerHTML = `<div class="empty-state">Não foi possível carregar os relatórios.</div>`;
+      feed.innerHTML = '<div class="empty-state">Não foi possível carregar as atualizações.</div>';
     }
   })();
 </script>

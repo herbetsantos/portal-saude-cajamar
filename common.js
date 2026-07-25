@@ -281,16 +281,9 @@ async function loadLinksTable(category) {
   const wrap = document.querySelector(`.table-wrap[data-table="${category}"]`);
   wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
 
-  let items;
-  try {
-    const res = await fetch(`/api/links?category=${category}`, { credentials: 'same-origin' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erro ao carregar.');
-    items = data.links || [];
-  } catch (err) {
-    wrap.innerHTML = `<p class="muted">Não foi possível carregar (${escapeHtml(err.message)}).</p>`;
-    return;
-  }
+  const res = await fetch(`/api/links?category=${category}`, { credentials: 'same-origin' });
+  const data = await res.json();
+  const items = data.links || [];
 
   wrap.innerHTML = `
     <table class="data-table">
@@ -1118,10 +1111,6 @@ async function putJson(url, payload) {
 
 function openEditUserModal(u) {
   const canManageAdmins = currentUser && currentUser.role === 'super_admin';
-  // Ninguém edita o próprio papel de Super Admin por aqui — evita o risco de
-  // rebaixar a própria conta (ou a de outro Super Admin) e o sistema ficar
-  // sem nenhum. O backend também bloqueia isso, esse é só um reforço na UI.
-  const isSelfSuperAdmin = currentUser && currentUser.id === u.id && u.role === 'super_admin';
     const roleOptions = canManageAdmins
     ? `
       <option value="user" ${u.role === 'user' ? 'selected' : ''}>Usuário</option>
@@ -1145,11 +1134,10 @@ function openEditUserModal(u) {
     </div>
     <div class="field">
       <label>Papel</label>
-      <select id="editURole" ${(canManageAdmins && !isSelfSuperAdmin) ? '' : 'disabled'}>
+      <select id="editURole" ${canManageAdmins ? '' : 'disabled'}>
         ${roleOptions}
       </select>
-      ${isSelfSuperAdmin ? '<p class="muted" style="font-size:12.5px;margin-top:4px">Você não pode alterar o papel da sua própria conta de Super Administrador.</p>' : ''}
-      ${(!canManageAdmins && !isSelfSuperAdmin) ? '<p class="muted" style="font-size:12.5px;margin-top:4px">Somente o Super Administrador pode alterar para Administrador.</p>' : ''}
+      ${canManageAdmins ? '' : '<p class="muted" style="font-size:12.5px;margin-top:4px">Somente o Super Administrador pode alterar para Administrador.</p>'}
     </div>
     <div class="field">
       <label><input type="checkbox" id="editUActive" ${u.active ? 'checked' : ''} style="width:auto;margin-right:6px"> Usuário ativo</label>

@@ -1,65 +1,82 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Apoio - Atenção Primária à Saúde Cajamar</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
+-- ⚠️ IMPORTANTE: rode este arquivo só UMA VEZ. A linha "ALTER TABLE links ADD
+-- COLUMN feature_key" dá erro se for executada de novo (SQLite não tem um
+-- jeito de dizer "adiciona essa coluna só se ela ainda não existir"). Se isso
+-- acontecer sem querer, o erro fica só nessa linha específica ("duplicate
+-- column name") — é inofensivo, mas pode interromper a execução das linhas
+-- seguintes do arquivo. Nesse caso, apague só essa linha do ALTER TABLE e
+-- rode o restante do arquivo de novo (os INSERT/UPDATE são seguros de repetir).
+--
+-- Migração aditiva: modelo de permissões por funcionalidade.
+-- NÃO contém nenhum DROP TABLE — pode rodar direto no D1 de produção, sem
+-- afetar as tabelas existentes (users, sessions, links, user_unidades, etc.).
+--
+-- Rode com: wrangler d1 execute portal-saude-db --file=./migration_permissions.sql
+--
+-- O que este arquivo faz:
+--   1. Cria a tabela role_permissions (teto de funcionalidades por papel).
+--   2. Cria a tabela user_permissions (exceções por profissional, dentro do teto).
+--   3. Adiciona a coluna feature_key em links (associa cada item do menu
+--      Ferramentas a uma funcionalidade, pra filtrar por permissão).
+--   4. Popula o teto padrão de cada papel (super_admin não entra — sempre
+--      tem tudo liberado, isso é tratado direto no código).
+--   5. Associa os itens de "Ferramentas" já cadastrados à funcionalidade
+--      correspondente (feita por nome; se você já renomeou algum desses
+--      itens, ajuste o WHERE title = '...' correspondente antes de rodar,
+--      ou faça o ajuste depois pela aba Ferramentas mesmo).
 
-<div id="app-topbar"></div>
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role TEXT NOT NULL,
+  feature_key TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (role, feature_key)
+);
 
-<main class="page">
-  <div class="page__header">
-    <div class="eyebrow">Portal interno</div>
-    <h1 class="page__title">Atualizações</h1>
-    <p class="page__subtitle">Avisos e novidades da Secretaria de Saúde de Cajamar. Ferramentas, documentos e manuais ficam no menu superior.</p>
-  </div>
+CREATE TABLE IF NOT EXISTS user_permissions (
+  user_id INTEGER NOT NULL,
+  feature_key TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, feature_key),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
-  <div id="updatesFeed">
-    <div class="skeleton-loading">Carregando atualizações…</div>
-  </div>
-</main>
+ALTER TABLE links ADD COLUMN feature_key TEXT;
 
-<script src="/js/common.js"></script>
-<script>
-  function formatUpdateDate(iso) {
-    if (!iso) return '';
-    const [y, m, d] = iso.split('-');
-    return (y && m && d) ? `${d}/${m}/${y}` : iso;
-  }
+-- Teto padrão por papel. Ajuste depois em Administração > Perfis de acesso.
+-- 'user': tudo liberado, exceto Administração.
+INSERT OR REPLACE INTO role_permissions (role, feature_key, enabled) VALUES
+  ('user', 'receituario', 1),
+  ('user', 'malotes', 1),
+  ('user', 'facilitawhats', 1),
+  ('user', 'mensageiro_esus', 1),
+  ('user', 'documentos', 1),
+  ('user', 'manuais', 1),
+  ('user', 'relatorios', 1),
+  ('user', 'administracao', 0);
 
-  (async () => {
-    const user = await initPortalChrome();
-    // Home não tem item de menu correspondente destacado.
-    if (!user) return;
+-- 'admin_unidade': tudo liberado (já tinha acesso à Administração hoje).
+INSERT OR REPLACE INTO role_permissions (role, feature_key, enabled) VALUES
+  ('admin_unidade', 'receituario', 1),
+  ('admin_unidade', 'malotes', 1),
+  ('admin_unidade', 'facilitawhats', 1),
+  ('admin_unidade', 'mensageiro_esus', 1),
+  ('admin_unidade', 'documentos', 1),
+  ('admin_unidade', 'manuais', 1),
+  ('admin_unidade', 'relatorios', 1),
+  ('admin_unidade', 'administracao', 1);
 
-    const feed = document.getElementById('updatesFeed');
-    try {
-      const res = await fetch('/api/updates', { credentials: 'same-origin' });
-      const data = await res.json();
-      const items = data.updates || [];
+-- 'admin': tudo liberado.
+INSERT OR REPLACE INTO role_permissions (role, feature_key, enabled) VALUES
+  ('admin', 'receituario', 1),
+  ('admin', 'malotes', 1),
+  ('admin', 'facilitawhats', 1),
+  ('admin', 'mensageiro_esus', 1),
+  ('admin', 'documentos', 1),
+  ('admin', 'manuais', 1),
+  ('admin', 'relatorios', 1),
+  ('admin', 'administracao', 1);
 
-      feed.innerHTML = items.length
-        ? `<div class="updates-list">${items.map((u) => `
-            <article class="update-card">
-              <div class="update-card__head">
-                ${u.tag ? `<span class="badge badge--admin">${escapeHtml(u.tag)}</span>` : ''}
-                <time class="update-card__date">${escapeHtml(formatUpdateDate(u.published_at))}</time>
-              </div>
-              <h2 class="update-card__title">${escapeHtml(u.title)}</h2>
-              <p class="update-card__body">${escapeHtml(u.body)}</p>
-              ${u.link_url ? `<a class="update-card__link" href="${escapeAttr(u.link_url)}" target="_blank" rel="noopener">${escapeHtml(u.link_label || 'Saiba mais')} →</a>` : ''}
-            </article>
-          `).join('')}</div>`
-        : `<div class="empty-state">Nenhuma atualização publicada ainda.</div>`;
-    } catch {
-      feed.innerHTML = '<div class="empty-state">Não foi possível carregar as atualizações.</div>';
-    }
-  })();
-</script>
-</body>
-</html>
+-- Associa os itens de Ferramentas já existentes à funcionalidade correspondente.
+UPDATE links SET feature_key = 'malotes'         WHERE category = 'ferramenta' AND title LIKE '%Malote%';
+UPDATE links SET feature_key = 'receituario'      WHERE category = 'ferramenta' AND title LIKE '%Prescri%';
+UPDATE links SET feature_key = 'facilitawhats'    WHERE category = 'ferramenta' AND title LIKE '%Facilita%';
+UPDATE links SET feature_key = 'mensageiro_esus'  WHERE category = 'ferramenta' AND (title LIKE '%esus%' OR title LIKE '%Mensageiro%');

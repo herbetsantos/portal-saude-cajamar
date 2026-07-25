@@ -1,38 +1,34 @@
-import { json, requireAdmin } from '../_utils.js';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solicitar acesso — Portal Saúde Cajamar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-card login-card--wide">
+      <div class="brand"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></div>
+      <div class="login-title">Solicitar acesso</div>
+      <div class="login-subtitle">Preencha seus dados. Um administrador vai analisar e liberar seu acesso.</div>
 
-export async function onRequestPut({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
-  if (error) return error;
+      <div id="formMsg" class="form-msg"></div>
 
-  const id = Number(params.id);
-  if (!id) return json({ error: 'ID inválido.' }, 400);
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: 'Requisição inválida.' }, 400);
-  }
-
-  const name = (body.name || '').trim();
-  const description = (body.description || '').trim();
-  if (!name) return json({ error: 'Informe o nome do grupo.' }, 400);
-
-  await env.DB.prepare('UPDATE report_groups SET name = ?, description = ? WHERE id = ?')
-    .bind(name, description || null, id)
-    .run();
-
-  return json({ ok: true });
-}
-
-export async function onRequestDelete({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
-  if (error) return error;
-
-  const id = Number(params.id);
-  if (!id) return json({ error: 'ID inválido.' }, 400);
-
-  await env.DB.prepare('DELETE FROM report_groups WHERE id = ?').bind(id).run();
-
-  return json({ ok: true });
-}
+      <form id="signupForm">
+        <div class="field">
+          <label for="name">Nome completo</label>
+          <input type="text" id="name" required autofocus>
+        </div>
+        <div class="field">
+          <label for="username">Usuário desejado</label>
+          <input type="text" id="username" required pattern="[a-z0-9._-]{3,32}" title="Letras minúsculas, números, ponto, hífen ou underline">
+        </div>
+        <div class="field">
+          <label for="unidade">Unidade de lotação</label>
+          <input type="text" id="unidade" required placeholder="Ex.: UBS Jardim..., Secretaria, etc.">
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>

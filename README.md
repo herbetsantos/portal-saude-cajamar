@@ -44,6 +44,17 @@ Isso cria o usuário administrador inicial:
 
 > ⚠️ Troque essa senha assim que fizer o primeiro acesso, em **Administração → Minha Conta**.
 
+Em seguida, rode também a migração do modelo de permissões por funcionalidade (necessária para a
+aba **Administração → Perfis de acesso** funcionar; sem ela o sistema roda normalmente, mas com
+todas as funcionalidades liberadas para todo mundo, já que ainda não existe teto configurado):
+
+```bash
+wrangler d1 execute portal-saude-db --remote --file=./migration_permissions.sql
+```
+
+> ⚠️ Rode este arquivo só uma vez (veja o comentário no topo do arquivo para o que fazer se ele
+> for executado por engano uma segunda vez).
+
 ## 2. Criar o projeto no Cloudflare Pages
 
 Se ainda não existir:
@@ -100,6 +111,11 @@ provisionado automaticamente — importante porque o login usa cookies `Secure`.
 - As senhas nunca são guardadas em texto puro: são armazenadas com hash PBKDF2-SHA256 (100.000
   iterações) + salt aleatório por usuário.
 - A sessão fica em um cookie `HttpOnly` + `Secure`, válido por 8 horas.
+- Quando um administrador define uma nova senha para alguém em **Administração → Usuários**
+  (ex.: recuperação de acesso), por padrão essa senha é tratada como temporária: a pessoa é
+  obrigada a trocá-la no próximo login (tela `/trocar-senha-obrigatoria.html`). O administrador
+  pode desmarcar a opção "Exigir troca de senha no próximo login" nesse mesmo formulário se quiser
+  definir uma senha definitiva diretamente.
 
 ## Testar localmente antes do deploy (opcional)
 

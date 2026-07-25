@@ -17,7 +17,7 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const { name, role, active, newPassword, unidade } = body;
+  const { name, role, active, newPassword, unidade, forceChangePassword } = body;
   const targetIsAdminLevel = target.role !== 'user';
   const newRoleIsAdminLevel = role && role !== 'user';
 
@@ -82,6 +82,11 @@ export async function onRequestPut({ request, env, params }) {
     const hash = await hashPassword(newPassword, salt);
     updates.push('password_hash = ?', 'salt = ?');
     values.push(hash, salt);
+    // Por padrão, uma senha definida pelo administrador é tratada como
+    // temporária: o usuário é obrigado a trocá-la no próximo login. O
+    // administrador pode desmarcar essa opção na tela (forceChangePassword: false).
+    updates.push('must_change_password = ?');
+    values.push(forceChangePassword === false ? 0 : 1);
   }
 
   if (updates.length === 0) return json({ error: 'Nada para atualizar.' }, 400);

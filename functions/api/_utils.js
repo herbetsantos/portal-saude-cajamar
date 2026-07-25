@@ -86,7 +86,7 @@ export async function getAuthUser(request, env) {
   if (!token) return null;
 
 const row = await env.DB.prepare(
-    `SELECT s.expires_at, u.id, u.username, u.name, u.role, u.active, u.unidade
+    `SELECT s.expires_at, u.id, u.username, u.name, u.role, u.active, u.unidade, u.must_change_password
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ?`
   )
@@ -100,7 +100,14 @@ const row = await env.DB.prepare(
     return null;
   }
 
-return { id: row.id, username: row.username, name: row.name, role: row.role, unidade: row.unidade };
+return {
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    role: row.role,
+    unidade: row.unidade,
+    mustChangePassword: !!row.must_change_password,
+  };
 }
 
 export async function requireAuth(request, env) {

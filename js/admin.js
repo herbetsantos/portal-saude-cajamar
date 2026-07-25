@@ -1158,6 +1158,9 @@ function openEditUserModal(u) {
       <label>Nova senha (opcional)</label>
       <input type="text" id="editUPassword" placeholder="Deixe em branco para manter a atual" minlength="8">
     </div>
+    <div class="field">
+      <label><input type="checkbox" id="editUForceChange" checked style="width:auto;margin-right:6px"> Exigir troca de senha no próximo login (recomendado ao definir uma senha temporária)</label>
+    </div>
     <div class="modal__actions">
       <button class="btn btn--outline btn--sm" id="cancelEditUser" type="button">Cancelar</button>
       <button class="btn btn--accent btn--sm" id="saveEditUser" type="button">Salvar alterações</button>
@@ -1183,6 +1186,7 @@ function openEditUserModal(u) {
           role: document.getElementById('editURole').value,
           active: document.getElementById('editUActive').checked,
           newPassword: newPassword || undefined,
+          forceChangePassword: document.getElementById('editUForceChange').checked,
         }),
       });
       const data = await res.json();

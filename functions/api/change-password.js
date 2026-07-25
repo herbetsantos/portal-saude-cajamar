@@ -29,7 +29,9 @@ export async function onRequestPost({ request, env }) {
   const newSalt = randomHex(16);
   const newHash = await hashPassword(newPassword, newSalt);
 
-  await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?')
+  await env.DB.prepare(
+    'UPDATE users SET password_hash = ?, salt = ?, must_change_password = 0 WHERE id = ?'
+  )
     .bind(newHash, newSalt, user.id)
     .run();
 

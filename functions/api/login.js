@@ -16,7 +16,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const user = await env.DB.prepare(
-    'SELECT id, username, name, password_hash, salt, role, active FROM users WHERE lower(username) = ?'
+    'SELECT id, username, name, password_hash, salt, role, active, must_change_password FROM users WHERE lower(username) = ?'
   )
     .bind(username)
     .first();
@@ -36,7 +36,15 @@ export async function onRequestPost({ request, env }) {
   const token = await createSession(env, user.id);
 
   return json(
-    { ok: true, user: { username: user.username, name: user.name, role: user.role } },
+    {
+      ok: true,
+      user: {
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        mustChangePassword: !!user.must_change_password,
+      },
+    },
     200,
     { 'Set-Cookie': sessionCookieHeader(token) }
   );

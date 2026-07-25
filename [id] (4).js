@@ -1,53 +1,58 @@
-// Guarda de acesso para as páginas estáticas de ferramentas/menus, baseada nas
-// permissões por funcionalidade (ver functions/api/_permissions.js).
-//
-// Cloudflare Pages executa este arquivo para TODA requisição do site (é o
-// _middleware.js da raiz), por isso o primeiro passo é sempre checar se o
-// caminho está no mapa abaixo — se não estiver, devolve next() imediatamente
-// e não custa nada extra (nenhuma chamada ao banco, nenhum atraso).
-//
-// /receituario/* já tem seu próprio middleware específico (com regra própria
-// de unidades) e não entra no mapa aqui, pra não rodar a checagem duas vezes.
+import { json, requireSuperAdmin } from '../../_utils.js';
 
-import { getAuthUser } from './api/_utils.js';
-import { getUserPermissions } from './api/_permissions.js';
+// GET: lista as unidades já usadas por algum usuário no sistema + quais
+// estão atribuídas a este admin_unidade.
+export async function onRequestGet({ request, env, params }) {
+  const { error } = await requireSuperAdmin(request, env);
+  if (error) return error;
 
-// pathname (sem barra final, com ou sem .html) -> feature_key exigida
-const PROTECTED = {
-  '/guiasmalotes': 'malotes',
-  '/guiasmalotes.html': 'malotes',
-  '/facilitawhats': 'facilitawhats',
-  '/facilitawhats.html': 'facilitawhats',
-  '/documentos': 'documentos',
-  '/documentos.html': 'documentos',
-  '/manuais': 'manuais',
-  '/manuais.html': 'manuais',
-  '/relatorios': 'relatorios',
-  '/relatorios.html': 'relatorios',
-  '/admin': 'administracao',
-  '/admin.html': 'administracao',
-};
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
 
-export async function onRequest({ request, env, next }) {
-  const url = new URL(request.url);
-  const pathname = url.pathname.replace(/\/+$/, '') || '/';
-  const featureKey = PROTECTED[pathname];
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
-  if (!featureKey) return next();
+  const { results: todas } = await env.DB.prepare(
+    `SELECT DISTINCT unidade FROM users WHERE unidade IS NOT NULL AND trim(unidade) <> '' ORDER BY unidade ASC`
+  ).all();
 
-  const user = await getAuthUser(request, env);
-  if (!user) {
-    const nextParam = encodeURIComponent(url.pathname + url.search);
-    return Response.redirect(`${url.origin}/login.html?next=${nextParam}`, 302);
+  const { results: atribuidas } = await env.DB.prepare(
+    'SELECT unidade FROM admin_unidades WHERE admin_user_id = ?'
+  ).bind(id).all();
+
+  return json({
+    unidades: todas.map((r) => r.unidade),
+    atribuidas: atribuidas.map((r) => r.unidade),
+  });
+}
+
+// PUT: substitui a lista de unidades que este admin_unidade gerencia
+// body: { unidades: ['UBS Jardim...', 'Secretaria', ...] }
+export async function onRequestPut({ request, env, params }) {
+  const { error } = await requireSuperAdmin(request, env);
+  if (error) return error;
+
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
+
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const permissions = await getUserPermissions(env, user);
-  if (!permissions[featureKey]) {
-    return Response.redirect(
-      `${url.origin}/portal.html?erro=${encodeURIComponent('Você não tem acesso a essa ferramenta. Fale com o administrador do portal.')}`,
-      302
-    );
+  const unidades = Array.isArray(body.unidades)
+    ? [...new Set(body.unidades.map((u) => String(u || '').trim()).filter(Boolean))]
+    : [];
+
+  await env.DB.prepare('DELETE FROM admin_unidades WHERE admin_user_id = ?').bind(id).run();
+  for (const u of unidades) {
+    await env.DB.prepare('INSERT INTO admin_unidades (admin_user_id, unidade) VALUES (?, ?)').bind(id, u).run();
   }
 
-  return next();
+  return json({ ok: true, unidades });
 }

@@ -1,8 +1,14 @@
-import { json, requireAuth, verifyPassword, hashPassword, randomHex } from './_utils.js';
+import { json, requireAdmin } from '../_utils.js';
+import { isFeatureKey } from '../_permissions.js';
 
-export async function onRequestPost({ request, env }) {
-  const { user, error } = await requireAuth(request, env);
+const CATEGORIES = ['ferramenta', 'documento', 'manual'];
+
+export async function onRequestPut({ request, env, params }) {
+  const { error } = await requireAdmin(request, env);
   if (error) return error;
+
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
 
   let body;
   try {
@@ -11,27 +17,29 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const { currentPassword, newPassword } = body;
-  if (!currentPassword || !newPassword) {
-    return json({ error: 'Informe a senha atual e a nova senha.' }, 400);
-  }
-  if (newPassword.length < 8) {
-    return json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' }, 400);
-  }
+  const { category, title, url, description, sort_order, feature_key } = body;
+  if (category && !CATEGORIES.includes(category)) return json({ error: 'Categoria inválida.' }, 400);
+  if (!title || !title.trim()) return json({ error: 'Informe um título.' }, 400);
+  if (!url || !url.trim()) return json({ error: 'Informe uma URL.' }, 400);
+  if (feature_key && !isFeatureKey(feature_key)) return json({ error: 'Funcionalidade inválida.' }, 400);
 
-  const row = await env.DB.prepare('SELECT password_hash, salt FROM users WHERE id = ?')
-    .bind(user.id)
-    .first();
-
-  const ok = await verifyPassword(currentPassword, row.salt, row.password_hash);
-  if (!ok) return json({ error: 'Senha atual incorreta.' }, 401);
-
-  const newSalt = randomHex(16);
-  const newHash = await hashPassword(newPassword, newSalt);
-
-  await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?')
-    .bind(newHash, newSalt, user.id)
+  await env.DB.prepare(
+    `UPDATE links SET category = COALESCE(?, category), title = ?, url = ?, description = ?, sort_order = ?, feature_key = ?
+     WHERE id = ?`
+  )
+    .bind(category || null, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, feature_key || null, id)
     .run();
 
+  return json({ ok: true });
+}
+
+export async function onRequestDelete({ request, env, params }) {
+  const { error } = await requireAdmin(request, env);
+  if (error) return error;
+
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
+
+  await env.DB.prepare('DELETE FROM links WHERE id = ?').bind(id).run();
   return json({ ok: true });
 }

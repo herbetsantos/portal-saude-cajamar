@@ -1,235 +1,60 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Apoio à Atenção Primária à Saúde de Cajamar - Faça seu login</title>
-<meta name="description" content="Portal de Apoio à Atenção Primária à Saúde de Cajamar — acesso para profissionais da rede municipal de saúde.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
-<link rel="icon" href="/assets/favicon.png">
-</head>
-<body>
-  <div class="login-shell">
-    <div class="login-bg" aria-hidden="true">
-      <canvas id="netBg"></canvas>
-    </div>
+import { json, requireAdmin } from '../../_utils.js';
+import { UNIDADES, isUnidadeCode } from '../../_unidades.js';
 
-    <div class="login-layout">
-      <div class="login-hero">
-        <!-- Textos editáveis: só trocar o conteúdo abaixo. -->
-        <div class="login-hero__title">Bem-vindo ao Portal de Apoio APS</div>
-        <div class="login-hero__subtitle">Tenha acesso à documentos e ferramentas dentro para apoio a Atenção Primária à Saúde de Cajamar</div>
-      </div>
+// GET: lista todas as unidades existentes + quais estão atribuídas ao usuário
+export async function onRequestGet({ request, env, params }) {
+  const { error } = await requireAdmin(request, env);
+  if (error) return error;
 
-      <div class="login-card">
-        <div class="brand"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></div>
-        <div class="login-title">Portal Saúde</div>
-        <div class="login-subtitle">Acesso restrito a usuários autorizados</div>
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
 
-        <div id="formMsg" class="form-msg"></div>
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
-        <form id="loginForm">
-          <div class="field">
-            <label for="username">Usuário</label>
-            <input type="text" id="username" name="username" autocomplete="username" required autofocus>
-          </div>
-          <div class="field">
-            <label for="password">Senha</label>
-            <input type="password" id="password" name="password" autocomplete="current-password" required>
-          </div>
-          <button type="submit" class="btn btn--accent" id="submitBtn">Entrar</button>
-        </form>
-        <div class="login-foot"><a href="/solicitar-acesso.html">Não tem acesso? Solicitar cadastro</a></div>
-        <div class="login-foot">Prefeitura Municipal de Cajamar</div>
-        <div class="login-foot">Secretaria de Saúde</div>
-      </div>
-    </div>
-  </div>
+  const { results } = await env.DB.prepare(
+    'SELECT unidade_code FROM user_unidades WHERE user_id = ?'
+  )
+    .bind(id)
+    .all();
+  const atribuidas = new Set(results.map((r) => r.unidade_code));
 
-  <script>
-    // Fundo decorativo: rede wireframe de pontos conectados por linhas.
-    // Os pontos flutuam devagar e se afastam do cursor, expandindo e
-    // contraindo a malha ao redor do mouse.
-    (function () {
-      const canvas = document.getElementById('netBg');
-      const shell = document.querySelector('.login-shell');
-      if (!canvas || !shell) return;
-      const ctx = canvas.getContext('2d');
+  return json({
+    role: target.role,
+    unidades: UNIDADES.map((u) => ({ ...u, atribuida: target.role === 'admin' || target.role === 'super_admin' || atribuidas.has(u.code) })),  });
+}
 
-      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// PUT: substitui a lista de unidades atribuídas ao usuário
+// body: { unidades: ['polvilho', 'upa', ...] }
+export async function onRequestPut({ request, env, params }) {
+  const { error } = await requireAdmin(request, env);
+  if (error) return error;
 
-      const LINE_COLOR = '32,59,143';   // --primary em rgb
-      const CONNECT_DIST = 190;
-      const REPEL_RADIUS = 150;
-      const REPEL_STRENGTH = 46;
-      const EASE = 0.08;
-      const MAX_LINE_ALPHA = 0.28;
-      const DOT_ALPHA = 0.35;
-      const DOT_RADIUS = 1.6;
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
 
-      let w = 0, h = 0, dpr = 1;
-      let particles = [];
-      let mouse = { x: 0, y: 0, active: false };
-      let rafId = null;
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
+  if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
-      function resize() {
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        w = shell.clientWidth;
-        h = shell.clientHeight;
-        canvas.width = Math.round(w * dpr);
-        canvas.height = Math.round(h * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        initParticles();
-        if (prefersReduced) drawFrame(false);
-      }
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Requisição inválida.' }, 400);
+  }
 
-      function initParticles() {
-        const count = Math.max(40, Math.min(100, Math.floor((w * h) / 15000)));
-        particles = [];
-        for (let i = 0; i < count; i++) {
-          particles.push({
-            x: Math.random() * w,
-            y: Math.random() * h,
-            vx: (Math.random() - 0.5) * 0.18,
-            vy: (Math.random() - 0.5) * 0.18,
-            ox: 0,
-            oy: 0,
-          });
-        }
-      }
+  const unidades = Array.isArray(body.unidades) ? body.unidades : [];
+  const validas = [...new Set(unidades.filter(isUnidadeCode))];
 
-      function updateParticles() {
-        for (const p of particles) {
-          p.x += p.vx;
-          p.y += p.vy;
-          if (p.x <= 0 || p.x >= w) { p.vx *= -1; p.x = Math.max(0, Math.min(w, p.x)); }
-          if (p.y <= 0 || p.y >= h) { p.vy *= -1; p.y = Math.max(0, Math.min(h, p.y)); }
+  await env.DB.prepare('DELETE FROM user_unidades WHERE user_id = ?').bind(id).run();
 
-          let tox = 0, toy = 0;
-          if (mouse.active) {
-            const dx = p.x - mouse.x;
-            const dy = p.y - mouse.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
-            if (dist < REPEL_RADIUS) {
-              const force = (1 - dist / REPEL_RADIUS) * REPEL_STRENGTH;
-              tox = (dx / dist) * force;
-              toy = (dy / dist) * force;
-            }
-          }
-          p.ox += (tox - p.ox) * EASE;
-          p.oy += (toy - p.oy) * EASE;
-        }
-      }
+  for (const code of validas) {
+    await env.DB.prepare(
+      'INSERT INTO user_unidades (user_id, unidade_code) VALUES (?, ?)'
+    )
+      .bind(id, code)
+      .run();
+  }
 
-      function drawFrame() {
-        ctx.clearRect(0, 0, w, h);
-
-        for (let i = 0; i < particles.length; i++) {
-          const a = particles[i];
-          const ax = a.x + a.ox, ay = a.y + a.oy;
-          for (let j = i + 1; j < particles.length; j++) {
-            const b = particles[j];
-            const bx = b.x + b.ox, by = b.y + b.oy;
-            const dx = ax - bx, dy = ay - by;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < CONNECT_DIST) {
-              const alpha = (1 - dist / CONNECT_DIST) * MAX_LINE_ALPHA;
-              ctx.strokeStyle = `rgba(${LINE_COLOR},${alpha.toFixed(3)})`;
-              ctx.lineWidth = 1;
-              ctx.beginPath();
-              ctx.moveTo(ax, ay);
-              ctx.lineTo(bx, by);
-              ctx.stroke();
-            }
-          }
-        }
-
-        for (const p of particles) {
-          const x = p.x + p.ox, y = p.y + p.oy;
-          ctx.beginPath();
-          ctx.arc(x, y, DOT_RADIUS, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${LINE_COLOR},${DOT_ALPHA})`;
-          ctx.fill();
-        }
-      }
-
-      function loop() {
-        updateParticles();
-        drawFrame();
-        rafId = requestAnimationFrame(loop);
-      }
-
-      window.addEventListener('resize', resize);
-      shell.addEventListener('mousemove', (e) => {
-        const rect = shell.getBoundingClientRect();
-        mouse.x = e.clientX - rect.left;
-        mouse.y = e.clientY - rect.top;
-        mouse.active = true;
-      });
-      shell.addEventListener('mouseleave', () => { mouse.active = false; });
-
-      resize();
-      if (!prefersReduced) {
-        rafId = requestAnimationFrame(loop);
-      }
-    })();
-  </script>
-
-  <script>
-    const form = document.getElementById('loginForm');
-    const msg = document.getElementById('formMsg');
-    const submitBtn = document.getElementById('submitBtn');
-
-    // Para onde ir depois do login (ex.: /receituario/?unidade=polvilho).
-    // Só aceitamos caminhos internos (começando com "/"), nunca URLs externas.
-    const params = new URLSearchParams(window.location.search);
-    const nextParam = params.get('next');
-    const nextUrl = nextParam && nextParam.startsWith('/') ? nextParam : '/portal.html';
-
-    // Se já estiver logado, vai direto pro destino.
-    fetch('/api/me', { credentials: 'same-origin' }).then(async (r) => {
-      if (!r.ok) return;
-      const data = await r.json();
-      if (data.user && data.user.mustChangePassword) {
-        window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
-      } else {
-        window.location.href = nextUrl;
-      }
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      msg.className = 'form-msg';
-      msg.textContent = '';
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Entrando…';
-
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            username: document.getElementById('username').value,
-            password: document.getElementById('password').value,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Não foi possível entrar.');
-        if (data.user && data.user.mustChangePassword) {
-          window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
-        } else {
-          window.location.href = nextUrl;
-        }
-      } catch (err) {
-        msg.className = 'form-msg is-error';
-        msg.textContent = err.message;
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Entrar';
-      }
-    });
-  </script>
-</body>
-</html>
+  return json({ ok: true, unidades: validas });
+}

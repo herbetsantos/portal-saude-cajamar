@@ -1,20 +1,11 @@
-import { json, requireAuth, requireAdmin } from '../_utils.js';
+import { json, requireAdminPanel, getAdminUnidades } from '../_utils.js';
 
-export async function onRequestGet({ request, env }) {
-  const { error } = await requireAuth(request, env);
+export async function onRequestPut({ request, env, params }) {
+  const { user: admin, error } = await requireAdminPanel(request, env);
   if (error) return error;
 
-  const { results } = await env.DB.prepare(
-    `SELECT id, title, body, tag, link_url, link_label, published_at
-     FROM updates ORDER BY published_at DESC, id DESC`
-  ).all();
-
-  return json({ updates: results });
-}
-
-export async function onRequestPost({ request, env }) {
-  const { error } = await requireAdmin(request, env);
-  if (error) return error;
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
 
   let body;
   try {
@@ -23,23 +14,45 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const { title, body: text, tag, link_url, link_label, published_at } = body;
-  if (!title || !title.trim()) return json({ error: 'Informe um título.' }, 400);
-  if (!text || !text.trim()) return json({ error: 'Informe o texto do aviso.' }, 400);
+  const action = body.action;
+  if (action !== 'approve' && action !== 'reject') {
+    return json({ error: 'Ação inválida.' }, 400);
+  }
 
-  const result = await env.DB.prepare(
-    `INSERT INTO updates (title, body, tag, link_url, link_label, published_at)
-     VALUES (?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), date('now')))`
+  const reqRow = await env.DB.prepare(
+    'SELECT id, name, username, password_hash, salt, unidade, status FROM signup_requests WHERE id = ?'
+  ).bind(id).first();
+  if (!reqRow) return json({ error: 'Solicitação não encontrada.' }, 404);
+  if (reqRow.status !== 'pending') return json({ error: 'Esta solicitação já foi resolvida.' }, 409);
+
+  if (admin.role === 'admin_unidade') {
+    const minhas = (await getAdminUnidades(env, admin.id)).map((u) => u.toLowerCase());
+    if (!reqRow.unidade || !minhas.includes(reqRow.unidade.toLowerCase())) {
+      return json({ error: 'Esta solicitação não é de uma unidade sob sua gestão.' }, 403);
+    }
+  }
+
+  if (action === 'reject') {
+    await env.DB.prepare(
+      `UPDATE signup_requests SET status = 'rejected', resolved_at = datetime('now'), resolved_by = ? WHERE id = ?`
+    ).bind(admin.id, id).run();
+    return json({ ok: true });
+  }
+
+  const existingUser = await env.DB.prepare('SELECT id FROM users WHERE lower(username) = ?').bind(reqRow.username).first();
+  if (existingUser) {
+    return json({ error: 'Já existe um usuário com esse login. Rejeite esta solicitação e oriente a pessoa a tentar outro usuário.' }, 409);
+  }
+
+  await env.DB.prepare(
+    'INSERT INTO users (username, name, password_hash, salt, role, unidade) VALUES (?, ?, ?, ?, ?, ?)'
   )
-    .bind(
-      title.trim(),
-      text.trim(),
-      tag ? tag.trim() : null,
-      link_url ? link_url.trim() : null,
-      link_label ? link_label.trim() : null,
-      published_at || ''
-    )
+    .bind(reqRow.username, reqRow.name, reqRow.password_hash, reqRow.salt, 'user', reqRow.unidade)
     .run();
 
-  return json({ ok: true, id: result.meta.last_row_id }, 201);
+  await env.DB.prepare(
+    `UPDATE signup_requests SET status = 'approved', resolved_at = datetime('now'), resolved_by = ? WHERE id = ?`
+  ).bind(admin.id, id).run();
+
+  return json({ ok: true });
 }

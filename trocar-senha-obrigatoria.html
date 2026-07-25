@@ -1,65 +1,107 @@
-import { json, requireAuth, requireAdmin } from '../_utils.js';
-import { isFeatureKey } from '../_permissions.js';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trocar senha — Portal Saúde Cajamar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="brand"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></div>
+      <div class="login-title">Troca de senha obrigatória</div>
+      <div class="login-subtitle">Por segurança, defina uma nova senha antes de continuar. Use a senha provisória que o administrador te passou como "senha atual".</div>
 
-const CATEGORIES = ['ferramenta', 'documento', 'manual'];
+      <div id="formMsg" class="form-msg"></div>
 
-export async function onRequestGet({ request, env }) {
-  const { error } = await requireAuth(request, env);
-  if (error) return error;
+      <form id="changeForm">
+        <div class="field">
+          <label for="curPass">Senha atual (provisória)</label>
+          <input type="password" id="curPass" autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="newPass">Nova senha</label>
+          <input type="password" id="newPass" autocomplete="new-password" required minlength="8">
+        </div>
+        <div class="field">
+          <label for="newPass2">Confirmar nova senha</label>
+          <input type="password" id="newPass2" autocomplete="new-password" required minlength="8">
+        </div>
+        <button type="submit" class="btn btn--accent" id="submitBtn">Salvar nova senha</button>
+      </form>
 
-  const url = new URL(request.url);
-  const category = url.searchParams.get('category');
+      <div class="login-foot">Prefeitura Municipal de Cajamar · Secretaria de Saúde</div>
+    </div>
+  </div>
 
-  const baseQuery = 'SELECT id, category, title, url, description, sort_order, feature_key FROM links';
-  const fallbackQuery = 'SELECT id, category, title, url, description, sort_order FROM links';
-  const suffix = category
-    ? ' WHERE category = ? ORDER BY sort_order ASC, id ASC'
-    : ' ORDER BY category ASC, sort_order ASC, id ASC';
+  <script>
+    // Para onde ir depois de trocar a senha. Só aceitamos caminhos internos
+    // (começando com "/"), nunca URLs externas.
+    const params = new URLSearchParams(window.location.search);
+    const nextParam = params.get('next');
+    const nextUrl = nextParam && nextParam.startsWith('/') ? nextParam : '/portal.html';
 
-  if (category && !CATEGORIES.includes(category)) return json({ error: 'Categoria inválida.' }, 400);
+    const form = document.getElementById('changeForm');
+    const msg = document.getElementById('formMsg');
+    const submitBtn = document.getElementById('submitBtn');
 
-  let results;
-  try {
-    const stmt = category
-      ? env.DB.prepare(baseQuery + suffix).bind(category)
-      : env.DB.prepare(baseQuery + suffix);
-    ({ results } = await stmt.all());
-  } catch {
-    // A migração migration_permissions.sql ainda não rodou (coluna feature_key
-    // não existe) — cai pra consulta antiga, sem quebrar o menu Ferramentas
-    // pra ninguém enquanto isso não é corrigido.
-    const stmt = category
-      ? env.DB.prepare(fallbackQuery + suffix).bind(category)
-      : env.DB.prepare(fallbackQuery + suffix);
-    ({ results } = await stmt.all());
-    results = results.map((r) => ({ ...r, feature_key: null }));
-  }
+    // Garante que o usuário está autenticado. Se já tiver trocado a senha
+    // (ex.: acessou esta página de novo por engano), manda pro destino.
+    (async () => {
+      try {
+        const res = await fetch('/api/me', { credentials: 'same-origin' });
+        if (!res.ok) {
+          window.location.href = '/login.html';
+          return;
+        }
+        const data = await res.json();
+        if (!data.user || !data.user.mustChangePassword) {
+          window.location.href = nextUrl;
+        }
+      } catch {
+        window.location.href = '/login.html';
+      }
+    })();
 
-  return json({ links: results });
-}
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'form-msg';
+      msg.textContent = '';
 
-export async function onRequestPost({ request, env }) {
-  const { error } = await requireAdmin(request, env);
-  if (error) return error;
+      const newPass = document.getElementById('newPass').value;
+      const newPass2 = document.getElementById('newPass2').value;
+      if (newPass !== newPass2) {
+        msg.className = 'form-msg is-error';
+        msg.textContent = 'As senhas não coincidem.';
+        return;
+      }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: 'Requisição inválida.' }, 400);
-  }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Salvando…';
 
-  const { category, title, url, description, sort_order, feature_key } = body;
-  if (!category || !CATEGORIES.includes(category)) return json({ error: 'Categoria inválida.' }, 400);
-  if (!title || !title.trim()) return json({ error: 'Informe um título.' }, 400);
-  if (!url || !url.trim()) return json({ error: 'Informe uma URL.' }, 400);
-  if (feature_key && !isFeatureKey(feature_key)) return json({ error: 'Funcionalidade inválida.' }, 400);
-
-  const result = await env.DB.prepare(
-    'INSERT INTO links (category, title, url, description, sort_order, feature_key) VALUES (?, ?, ?, ?, ?, ?)'
-  )
-    .bind(category, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, feature_key || null)
-    .run();
-
-  return json({ ok: true, id: result.meta.last_row_id }, 201);
-}
+      try {
+        const res = await fetch('/api/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            currentPassword: document.getElementById('curPass').value,
+            newPassword: newPass,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Não foi possível trocar a senha.');
+        window.location.href = nextUrl;
+      } catch (err) {
+        msg.className = 'form-msg is-error';
+        msg.textContent = err.message;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Salvar nova senha';
+      }
+    });
+  </script>
+</body>
+</html>

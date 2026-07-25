@@ -1,6 +1,36 @@
-import { json, verifyPassword, createSession, sessionCookieHeader } from './_utils.js';
+import { json, requireAdmin } from '../../_utils.js';
 
-export async function onRequestPost({ request, env }) {
+// GET: lista todos os relatórios cadastrados + quais estão neste grupo.
+export async function onRequestGet({ request, env, params }) {
+  const { error } = await requireAdmin(request, env);
+  if (error) return error;
+
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
+
+  const { results: todos } = await env.DB.prepare(
+    'SELECT id, title FROM reports ORDER BY sort_order ASC, title ASC'
+  ).all();
+
+  const { results: atribuidos } = await env.DB.prepare(
+    'SELECT report_id FROM report_group_reports WHERE group_id = ?'
+  ).bind(id).all();
+  const atribuidosSet = new Set(atribuidos.map((r) => r.report_id));
+
+  return json({
+    reports: todos.map((r) => ({ ...r, atribuido: atribuidosSet.has(r.id) })),
+  });
+}
+
+// PUT: substitui a lista de relatórios que este grupo pode ver.
+// body: { reportIds: [1, 2, 3] }
+export async function onRequestPut({ request, env, params }) {
+  const { error } = await requireAdmin(request, env);
+  if (error) return error;
+
+  const id = Number(params.id);
+  if (!id) return json({ error: 'ID inválido.' }, 400);
+
   let body;
   try {
     body = await request.json();
@@ -8,36 +38,14 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const username = (body.username || '').trim().toLowerCase();
-  const password = body.password || '';
+  const reportIds = Array.isArray(body.reportIds) ? body.reportIds.map(Number).filter(Boolean) : [];
 
-  if (!username || !password) {
-    return json({ error: 'Informe usuário e senha.' }, 400);
+  await env.DB.prepare('DELETE FROM report_group_reports WHERE group_id = ?').bind(id).run();
+  for (const reportId of reportIds) {
+    await env.DB.prepare('INSERT INTO report_group_reports (group_id, report_id) VALUES (?, ?)')
+      .bind(id, reportId)
+      .run();
   }
 
-  const user = await env.DB.prepare(
-    'SELECT id, username, name, password_hash, salt, role, active FROM users WHERE lower(username) = ?'
-  )
-    .bind(username)
-    .first();
-
-  // Mensagem genérica em caso de erro, para não revelar se o usuário existe.
-  const invalidMsg = { error: 'Usuário ou senha inválidos.' };
-
-  if (!user || !user.active) {
-    return json(invalidMsg, 401);
-  }
-
-  const ok = await verifyPassword(password, user.salt, user.password_hash);
-  if (!ok) {
-    return json(invalidMsg, 401);
-  }
-
-  const token = await createSession(env, user.id);
-
-  return json(
-    { ok: true, user: { username: user.username, name: user.name, role: user.role } },
-    200,
-    { 'Set-Cookie': sessionCookieHeader(token) }
-  );
+  return json({ ok: true });
 }

@@ -1,9 +1,280 @@
-import { json, getAuthUser } from './_utils.js';
-import { getUserPermissions } from './_permissions.js';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administração — Portal Saúde Cajamar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
 
-export async function onRequestGet({ request, env }) {
-  const user = await getAuthUser(request, env);
-  if (!user) return json({ error: 'Não autenticado.' }, 401);
-  const permissions = await getUserPermissions(env, user);
-  return json({ user: { ...user, permissions } });
-}
+<div id="app-topbar"></div>
+
+<main class="page">
+  <div class="page__header">
+    <div class="eyebrow">Área restrita</div>
+    <h1 class="page__title">Administração</h1>
+    <p class="page__subtitle">Gerencie as ferramentas, documentos, manuais e os usuários com acesso ao portal.</p>
+  </div>
+
+  <div id="notAdminMsg" class="empty-state" style="display:none">
+    Esta área é restrita a administradores.
+  </div>
+
+  <div class="admin-shell" id="adminShell" style="display:none">
+    <div class="admin-tabs">
+      <button class="admin-tab is-active" data-tab="updates">Atualizações</button>
+      <button class="admin-tab" data-tab="solicitacoes">Solicitações<span id="pendingBadge" class="admin-tab__count" style="display:none">0</span></button>
+      <button class="admin-tab" data-tab="ferramenta">Ferramentas</button>
+      <button class="admin-tab" data-tab="documento">Documentos Úteis</button>
+      <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
+      <button class="admin-tab" data-tab="relatorios">Relatórios</button>
+      <button class="admin-tab" data-tab="perfis">Perfis de acesso</button>
+      <button class="admin-tab" data-tab="usuarios">Usuários</button>
+      <button class="admin-tab" data-tab="conta">Minha Conta</button>
+    </div>
+
+    <div class="admin-panel">
+
+<!-- Atualizações -->
+<section class="panel-section is-active" data-panel="updates">
+  <div class="panel-section__head">
+    <div>
+      <div class="panel-section__title">Atualizações</div>
+      <div class="panel-section__desc">Avisos e novidades exibidos na página inicial do portal.</div>
+    </div>
+  </div>
+  <div id="updatesTableWrap"><div class="skeleton-loading">Carregando…</div></div>
+
+  <form id="addUpdateForm" class="inline-form">
+    <div class="field field--full">
+      <label for="upTitle">Título</label>
+      <input type="text" id="upTitle" required>
+    </div>
+    <div class="field field--full">
+      <label for="upBody">Texto</label>
+      <textarea id="upBody" rows="3" required style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;resize:vertical"></textarea>
+    </div>
+    <div class="field">
+      <label for="upTag">Categoria/tag (opcional)</label>
+      <input type="text" id="upTag" placeholder="Ex.: Sistema, Aviso, Manutenção">
+    </div>
+    <div class="field">
+      <label for="upDate">Data</label>
+      <input type="date" id="upDate">
+    </div>
+    <div class="field">
+      <label for="upLinkUrl">Link/anexo (opcional)</label>
+      <input type="url" id="upLinkUrl" placeholder="https://">
+    </div>
+    <div class="field">
+      <label for="upLinkLabel">Texto do link (opcional)</label>
+      <input type="text" id="upLinkLabel" placeholder="Ex.: Ver anexo">
+    </div>
+    <div class="inline-form__actions">
+      <button type="submit" class="btn btn--accent btn--sm">Publicar atualização</button>
+    </div>
+    <div id="addUpdateMsg" class="form-msg" style="grid-column:1/-1"></div>
+  </form>
+</section>
+
+<!-- Solicitações de cadastro -->
+<section class="panel-section" data-panel="solicitacoes">
+  <div class="panel-section__head">
+    <div>
+      <div class="panel-section__title">Solicitações de acesso</div>
+      <div class="panel-section__desc">Pedidos de cadastro enviados pela tela pública. Aprovar cria o usuário automaticamente.</div>
+    </div>
+  </div>
+  <div id="signupRequestsWrap"><div class="skeleton-loading">Carregando…</div></div>
+</section>
+
+<!-- Ferramentas / Documentos / Manuais compartilham o mesmo template -->
+<section class="panel-section" data-panel="ferramenta">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Ferramentas</div>
+            <div class="panel-section__desc">Itens exibidos no submenu FERRAMENTAS do menu superior.</div>
+          </div>
+        </div>
+        <div class="table-wrap" data-table="ferramenta"></div>
+      </section>
+
+      <section class="panel-section" data-panel="documento">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Documentos Úteis</div>
+            <div class="panel-section__desc">Itens exibidos na página Documentos Úteis.</div>
+          </div>
+        </div>
+        <div class="table-wrap" data-table="documento"></div>
+      </section>
+
+      <section class="panel-section" data-panel="manual">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Manuais de Uso</div>
+            <div class="panel-section__desc">Itens exibidos na página Manuais de Uso.</div>
+          </div>
+        </div>
+        <div class="table-wrap" data-table="manual"></div>
+      </section>
+
+      <!-- Relatórios -->
+      <section class="panel-section" data-panel="relatorios">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Grupos de acesso</div>
+            <div class="panel-section__desc">Crie grupos (ex.: Enfermagem, Gestão) e escolha quais relatórios cada grupo pode ver. Depois, atribua usuários aos grupos na aba Usuários.</div>
+          </div>
+        </div>
+        <div id="reportGroupsWrap"><div class="skeleton-loading">Carregando…</div></div>
+
+        <form id="addGroupForm" class="inline-form">
+          <div class="field">
+            <label for="grpName">Nome do grupo</label>
+            <input type="text" id="grpName" required placeholder="Ex.: Enfermagem">
+          </div>
+          <div class="field field--full">
+            <label for="grpDesc">Descrição (opcional)</label>
+            <input type="text" id="grpDesc">
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Criar grupo</button>
+          </div>
+          <div id="addGroupMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+
+        <div class="panel-section__head" style="margin-top:34px">
+          <div>
+            <div class="panel-section__title">Relatórios cadastrados</div>
+            <div class="panel-section__desc">Link do relatório do Data Studio (ou outro serviço) e como ele deve abrir para quem tiver acesso.</div>
+          </div>
+        </div>
+        <div id="reportsWrap"><div class="skeleton-loading">Carregando…</div></div>
+
+        <form id="addReportForm" class="inline-form">
+          <div class="field field--full">
+            <label for="repTitle">Título</label>
+            <input type="text" id="repTitle" required>
+          </div>
+          <div class="field field--full">
+            <label for="repDesc">Descrição (opcional)</label>
+            <input type="text" id="repDesc">
+          </div>
+          <div class="field field--full">
+            <label for="repUrl">Link do relatório (embed do Data Studio ou outro link)</label>
+            <input type="url" id="repUrl" required placeholder="https://">
+          </div>
+          <div class="field">
+            <label for="repMode">Como abrir</label>
+            <select id="repMode">
+              <option value="embed">Incorporado no portal</option>
+              <option value="new_tab">Nova aba</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="repOrder">Ordem de exibição</label>
+            <input type="number" id="repOrder" value="1">
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Adicionar relatório</button>
+          </div>
+          <div id="addReportMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+      </section>
+
+      <!-- Perfis de acesso -->
+      <section class="panel-section" data-panel="perfis">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Perfis de acesso</div>
+            <div class="panel-section__desc">Define o "teto" de funcionalidades permitido para cada papel. O card de Configurações de cada profissional (aba Usuários) nunca pode ir além do que estiver marcado aqui. O Super Administrador sempre tem acesso a tudo e não aparece nesta lista.</div>
+          </div>
+        </div>
+        <div id="rolePermsWrap"><div class="skeleton-loading">Carregando…</div></div>
+      </section>
+
+      <!-- Usuários -->
+      <section class="panel-section" data-panel="usuarios">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Usuários</div>
+            <div class="panel-section__desc">Pessoas com acesso ao portal.</div>
+          </div>
+        </div>
+        <div id="usersTableWrap"><div class="skeleton-loading">Carregando usuários…</div></div>
+
+        <form id="addUserForm" class="inline-form">
+          <div class="field">
+            <label for="uName">Nome completo</label>
+            <input type="text" id="uName" required>
+          </div>
+          <div class="field">
+            <label for="uUsername">Usuário (login)</label>
+            <input type="text" id="uUsername" required pattern="[a-z0-9._-]{3,32}" title="Letras minúsculas, números, ponto, hífen ou underline">
+          </div>
+          <div class="field">
+            <label for="uUnidade">Unidade de lotação</label>
+            <input type="text" id="uUnidade">
+          </div>
+          <div class="field">
+            <label for="uPassword">Senha provisória</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="uPassword" required minlength="8" style="flex:1">
+              <button type="button" id="genTempPasswordNewUser" class="btn btn--outline btn--sm" style="white-space:nowrap">Gerar</button>
+            </div>
+          </div>
+          <div class="field field--full">
+            <label for="uRole">Papel</label>
+            <select id="uRole" style="max-width:320px">
+              <option value="user">Usuário</option>
+              <option value="admin">Administrador</option>
+              <option value="super_admin">Super Administrador</option>
+            </select>
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Adicionar usuário</button>
+          </div>
+          <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0">O usuário será obrigado a trocar essa senha provisória no primeiro login.</p>
+          <div id="addUserMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+      </section>
+
+      <!-- Minha conta -->
+      <section class="panel-section" data-panel="conta">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Minha Conta</div>
+            <div class="panel-section__desc">Altere sua própria senha de acesso.</div>
+          </div>
+        </div>
+        <form id="changePasswordForm" style="max-width:340px">
+          <div class="field">
+            <label for="curPass">Senha atual</label>
+            <input type="password" id="curPass" required>
+          </div>
+          <div class="field">
+            <label for="newPass">Nova senha</label>
+            <input type="password" id="newPass" required minlength="8">
+          </div>
+          <div id="changePassMsg" class="form-msg"></div>
+          <button type="submit" class="btn btn--accent">Salvar nova senha</button>
+        </form>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<!-- Modal genérico de edição -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

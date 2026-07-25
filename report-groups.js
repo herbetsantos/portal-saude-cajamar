@@ -1,11 +1,42 @@
-import { json, requireAdmin } from '../_utils.js';
+import { json, requireAdminPanel, requireSuperAdmin } from './_utils.js';
+import { FEATURES, isFeatureKey } from './_permissions.js';
 
-export async function onRequestPut({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
+// super_admin não entra nessa lista: sempre tem tudo liberado e não é editável.
+const ROLES = ['user', 'admin_unidade', 'admin'];
+const ROLE_SET = new Set(ROLES);
+
+// GET: qualquer papel do painel admin pode ver o teto vigente (é usado para
+// desenhar o card de Configurações do profissional). Só o Super Admin edita.
+export async function onRequestGet({ request, env }) {
+  const { error } = await requireAdminPanel(request, env);
   if (error) return error;
 
-  const id = Number(params.id);
-  if (!id) return json({ error: 'ID inválido.' }, 400);
+  let results;
+  try {
+    ({ results } = await env.DB.prepare('SELECT role, feature_key, enabled FROM role_permissions').all());
+  } catch {
+    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+  }
+
+  const map = {};
+  ROLES.forEach((r) => {
+    map[r] = {};
+    FEATURES.forEach((f) => { map[r][f.key] = false; });
+  });
+  results.forEach((row) => {
+    if (ROLE_SET.has(row.role) && isFeatureKey(row.feature_key)) {
+      map[row.role][row.feature_key] = !!row.enabled;
+    }
+  });
+
+  return json({ features: FEATURES, roles: ROLES, permissions: map });
+}
+
+// PUT: substitui o teto de todos os papéis de uma vez.
+// body: { permissions: { user: { receituario: true, ... }, admin_unidade: {...}, admin: {...} } }
+export async function onRequestPut({ request, env }) {
+  const { error } = await requireSuperAdmin(request, env);
+  if (error) return error;
 
   let body;
   try {
@@ -14,32 +45,22 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const title = (body.title || '').trim();
-  const description = (body.description || '').trim();
-  const embedUrl = (body.embed_url || '').trim();
-  const displayMode = body.display_mode === 'new_tab' ? 'new_tab' : 'embed';
-  const sortOrder = Number(body.sort_order) || 0;
+  const permissions = body.permissions || {};
 
-  if (!title) return json({ error: 'Informe o título do relatório.' }, 400);
-  if (!embedUrl) return json({ error: 'Informe o link do relatório.' }, 400);
-
-  await env.DB.prepare(
-    'UPDATE reports SET title = ?, description = ?, embed_url = ?, display_mode = ?, sort_order = ? WHERE id = ?'
-  )
-    .bind(title, description || null, embedUrl, displayMode, sortOrder, id)
-    .run();
-
-  return json({ ok: true });
-}
-
-export async function onRequestDelete({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
-  if (error) return error;
-
-  const id = Number(params.id);
-  if (!id) return json({ error: 'ID inválido.' }, 400);
-
-  await env.DB.prepare('DELETE FROM reports WHERE id = ?').bind(id).run();
+  try {
+    for (const role of ROLES) {
+      const featMap = permissions[role] || {};
+      for (const f of FEATURES) {
+        const enabled = featMap[f.key] ? 1 : 0;
+        await env.DB.prepare(
+          `INSERT INTO role_permissions (role, feature_key, enabled) VALUES (?, ?, ?)
+           ON CONFLICT (role, feature_key) DO UPDATE SET enabled = excluded.enabled`
+        ).bind(role, f.key, enabled).run();
+      }
+    }
+  } catch {
+    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+  }
 
   return json({ ok: true });
 }

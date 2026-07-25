@@ -1,77 +1,53 @@
-// Modelo de permissões por funcionalidade.
+// Guarda de acesso para as páginas estáticas de ferramentas/menus, baseada nas
+// permissões por funcionalidade (ver functions/api/_permissions.js).
 //
-// - role_permissions define o "teto" (máximo permitido) por papel — editável
-//   em Administração > Perfis de acesso (só Super Admin edita).
-// - user_permissions guarda exceções por profissional DENTRO desse teto —
-//   nunca pode ultrapassar o que o papel do usuário permite.
-// - super_admin sempre tem acesso a tudo e não passa por nenhuma das duas
-//   tabelas (evita a possibilidade de alguém se autobloquear por engano).
+// Cloudflare Pages executa este arquivo para TODA requisição do site (é o
+// _middleware.js da raiz), por isso o primeiro passo é sempre checar se o
+// caminho está no mapa abaixo — se não estiver, devolve next() imediatamente
+// e não custa nada extra (nenhuma chamada ao banco, nenhum atraso).
+//
+// /receituario/* já tem seu próprio middleware específico (com regra própria
+// de unidades) e não entra no mapa aqui, pra não rodar a checagem duas vezes.
 
-export const FEATURES = [
-  { key: 'receituario', label: 'Receituário' },
-  { key: 'malotes', label: 'Malotes e Remessas' },
-  { key: 'facilitawhats', label: 'FacilitaWhats' },
-  { key: 'mensageiro_esus', label: 'Mensageiro eSUS' },
-  { key: 'documentos', label: 'Documentos Úteis' },
-  { key: 'manuais', label: 'Manuais de Uso' },
-  { key: 'relatorios', label: 'Relatórios' },
-  { key: 'administracao', label: 'Administração' },
-];
+import { getAuthUser } from './api/_utils.js';
+import { getUserPermissions } from './api/_permissions.js';
 
-export const FEATURE_KEYS = FEATURES.map((f) => f.key);
-const FEATURE_KEY_SET = new Set(FEATURE_KEYS);
+// pathname (sem barra final, com ou sem .html) -> feature_key exigida
+const PROTECTED = {
+  '/guiasmalotes': 'malotes',
+  '/guiasmalotes.html': 'malotes',
+  '/facilitawhats': 'facilitawhats',
+  '/facilitawhats.html': 'facilitawhats',
+  '/documentos': 'documentos',
+  '/documentos.html': 'documentos',
+  '/manuais': 'manuais',
+  '/manuais.html': 'manuais',
+  '/relatorios': 'relatorios',
+  '/relatorios.html': 'relatorios',
+  '/admin': 'administracao',
+  '/admin.html': 'administracao',
+};
 
-export function isFeatureKey(key) {
-  return FEATURE_KEY_SET.has(key);
-}
+export async function onRequest({ request, env, next }) {
+  const url = new URL(request.url);
+  const pathname = url.pathname.replace(/\/+$/, '') || '/';
+  const featureKey = PROTECTED[pathname];
 
-function allTrue() {
-  const m = {};
-  FEATURE_KEYS.forEach((k) => { m[k] = true; });
-  return m;
-}
-function allFalse() {
-  const m = {};
-  FEATURE_KEYS.forEach((k) => { m[k] = false; });
-  return m;
-}
+  if (!featureKey) return next();
 
-// Teto de funcionalidades de um papel (role). super_admin sempre tudo liberado.
-// Se a migração ainda não rodou (tabela não existe) ou o banco falhar por
-// qualquer motivo, cai pro "tudo liberado" em vez de quebrar a página inteira —
-// é assim que o site já se comportava antes desse recurso existir.
-export async function getRoleCeiling(env, role) {
-  if (role === 'super_admin') return allTrue();
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT feature_key, enabled FROM role_permissions WHERE role = ?'
-    ).bind(role).all();
-    const ceiling = allFalse();
-    results.forEach((r) => { if (isFeatureKey(r.feature_key)) ceiling[r.feature_key] = !!r.enabled; });
-    return ceiling;
-  } catch {
-    return allTrue();
+  const user = await getAuthUser(request, env);
+  if (!user) {
+    const nextParam = encodeURIComponent(url.pathname + url.search);
+    return Response.redirect(`${url.origin}/login.html?next=${nextParam}`, 302);
   }
-}
 
-// Permissões efetivas de um usuário: teto do papel + exceções individuais,
-// nunca ultrapassando o teto do papel. Mesma lógica de fail-open acima.
-export async function getUserPermissions(env, user) {
-  if (user.role === 'super_admin') return allTrue();
-  const ceiling = await getRoleCeiling(env, user.role);
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
-    ).bind(user.id).all();
-    const overrides = {};
-    results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
-    const effective = {};
-    FEATURE_KEYS.forEach((k) => {
-      const wanted = overrides.hasOwnProperty(k) ? overrides[k] : ceiling[k];
-      effective[k] = ceiling[k] && wanted; // nunca passa do teto do papel
-    });
-    return effective;
-  } catch {
-    return ceiling;
+  const permissions = await getUserPermissions(env, user);
+  if (!permissions[featureKey]) {
+    return Response.redirect(
+      `${url.origin}/portal.html?erro=${encodeURIComponent('Você não tem acesso a essa ferramenta. Fale com o administrador do portal.')}`,
+      302
+    );
   }
+
+  return next();
 }

@@ -1,4 +1,4 @@
-import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex } from '../_utils.js';
+import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex, logAudit } from '../_utils.js';
 
 export async function onRequestGet({ request, env }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
@@ -71,6 +71,10 @@ export async function onRequestPost({ request, env }) {
   )
     .bind(username, name, hash, salt, requestedRole, unidade || null)
     .run();
+
+  await logAudit(env, requester, 'create_user', 'user', result.meta.last_row_id, {
+    username, name, role: requestedRole, unidade: unidade || null,
+  });
 
   return json({ ok: true, id: result.meta.last_row_id }, 201);
 }

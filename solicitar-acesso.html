@@ -38,6 +38,9 @@
           <label for="confirmPassword">Confirmar senha</label>
           <input type="password" id="confirmPassword" required minlength="8">
         </div>
+        <div class="field" id="turnstileField" style="display:none">
+          <div id="turnstileWidget"></div>
+        </div>
         <button type="submit" class="btn btn--accent" id="submitBtn">Enviar solicitação</button>
       </form>
 
@@ -46,9 +49,37 @@
   </div>
 
   <script>
+    // ──────────────────────────────────────────────────────────────────────
+    // CAPTCHA (Cloudflare Turnstile) — OPCIONAL.
+    //
+    // Preencha TURNSTILE_SITE_KEY com a Site Key do seu widget (gratuita, 2
+    // minutos): Cloudflare Dashboard > Turnstile > Add site > escolha o modo
+    // "Managed" > copie a "Site Key" (a "Secret Key" correspondente vai como
+    // variável de ambiente TURNSTILE_SECRET_KEY no Pages, nunca aqui no HTML).
+    //
+    // Enquanto TURNSTILE_SITE_KEY estiver vazio, o widget simplesmente não
+    // aparece e o formulário funciona normalmente sem CAPTCHA (o backend já
+    // pula a verificação nesse caso). Não precisa mexer em mais nada.
+    // ──────────────────────────────────────────────────────────────────────
+    const TURNSTILE_SITE_KEY = '0x4AAAAAAD91KL5KN7uZc6hX';
+
     const form = document.getElementById('signupForm');
     const msg = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
+    let turnstileScriptLoaded = false;
+
+    if (TURNSTILE_SITE_KEY) {
+      document.getElementById('turnstileField').style.display = '';
+      const s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+      s.async = true;
+      s.defer = true;
+      s.onload = () => {
+        turnstileScriptLoaded = true;
+        window.turnstile.render('#turnstileWidget', { sitekey: TURNSTILE_SITE_KEY });
+      };
+      document.head.appendChild(s);
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -63,6 +94,16 @@
         return;
       }
 
+      let turnstileToken = '';
+      if (TURNSTILE_SITE_KEY) {
+        turnstileToken = (turnstileScriptLoaded && window.turnstile) ? window.turnstile.getResponse() : '';
+        if (!turnstileToken) {
+          msg.className = 'form-msg is-error';
+          msg.textContent = 'Confirme que você não é um robô antes de enviar.';
+          return;
+        }
+      }
+
       submitBtn.disabled = true;
       submitBtn.textContent = 'Enviando…';
 
@@ -75,6 +116,7 @@
             username: document.getElementById('username').value.trim().toLowerCase(),
             unidade: document.getElementById('unidade').value,
             password,
+            turnstileToken,
           }),
         });
         const data = await res.json();
@@ -88,6 +130,7 @@
         msg.textContent = err.message;
         submitBtn.disabled = false;
         submitBtn.textContent = 'Enviar solicitação';
+        if (TURNSTILE_SITE_KEY && window.turnstile) window.turnstile.reset();
       }
     });
   </script>

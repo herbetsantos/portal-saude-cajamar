@@ -55,6 +55,43 @@ wrangler d1 execute portal-saude-db --remote --file=./migration_permissions.sql
 > ⚠️ Rode este arquivo só uma vez (veja o comentário no topo do arquivo para o que fazer se ele
 > for executado por engano uma segunda vez).
 
+Rode também a migração de segurança (rate limiting de login e trilha de auditoria). Ela é
+aditiva (`CREATE TABLE IF NOT EXISTS`/`CREATE INDEX IF NOT EXISTS`), então pode ser executada
+com segurança mesmo em um banco que já esteja em produção:
+
+```bash
+wrangler d1 execute portal-saude-db --remote --file=./migration_security.sql
+```
+
+Isso cria:
+- `login_attempts` — histórico de tentativas de login, usado para bloquear temporariamente
+  (429) após 5 falhas seguidas para o mesmo usuário ou 20 falhas vindas do mesmo IP em 15 min.
+- `audit_log` — quem criou/editou/excluiu usuários, links, permissões e aprovações de cadastro
+  (consulte via `GET /api/audit-log`, restrito ao Super Administrador).
+- Um índice em `sessions(user_id)`, usado para invalidar sessões rapidamente ao trocar senha,
+  desativar ou excluir um usuário.
+
+### CAPTCHA no formulário público de solicitação de acesso (opcional)
+
+`/solicitar-acesso.html` é público (não exige login). Ele já suporta um CAPTCHA do
+[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) para impedir envios
+automatizados (spam de solicitações e tentativas de descobrir usernames já cadastrados), mas
+isso é **totalmente opcional** — sem configurar nada, o widget não aparece e o formulário
+funciona normalmente sem CAPTCHA.
+
+Para ativar (leva ~2 minutos, é grátis):
+
+1. No **Cloudflare Dashboard → Turnstile → Add site**, escolha o modo "Managed" e copie a
+   **Site Key** gerada.
+2. Abra `solicitar-acesso.html` e preencha a constante `TURNSTILE_SITE_KEY` (perto do topo do
+   `<script>`, hoje vazia: `const TURNSTILE_SITE_KEY = '';`) com essa Site Key.
+3. No **Cloudflare Dashboard → Pages → portal-saude-cajamar → Settings → Environment variables**,
+   adicione `TURNSTILE_SECRET_KEY` com a Secret Key correspondente (produção e preview) — essa
+   é a parte que fica no servidor e nunca deve ir para o HTML/código do front-end.
+
+Enquanto `TURNSTILE_SITE_KEY` estiver vazio (padrão) ou `TURNSTILE_SECRET_KEY` não estiver
+configurada, a verificação é pulada dos dois lados automaticamente.
+
 ## 2. Criar o projeto no Cloudflare Pages
 
 Se ainda não existir:

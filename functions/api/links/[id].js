@@ -1,10 +1,10 @@
-import { json, requireAdmin } from '../_utils.js';
+import { json, requireAdmin, logAudit } from '../_utils.js';
 import { isFeatureKey } from '../_permissions.js';
 
 const CATEGORIES = ['ferramenta', 'documento', 'manual'];
 
 export async function onRequestPut({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
+  const { user, error } = await requireAdmin(request, env);
   if (error) return error;
 
   const id = Number(params.id);
@@ -30,16 +30,19 @@ export async function onRequestPut({ request, env, params }) {
     .bind(category || null, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, feature_key || null, id)
     .run();
 
+  await logAudit(env, user, 'update_link', 'link', id, { category, title: title.trim(), url: url.trim() });
+
   return json({ ok: true });
 }
 
 export async function onRequestDelete({ request, env, params }) {
-  const { error } = await requireAdmin(request, env);
+  const { user, error } = await requireAdmin(request, env);
   if (error) return error;
 
   const id = Number(params.id);
   if (!id) return json({ error: 'ID inválido.' }, 400);
 
   await env.DB.prepare('DELETE FROM links WHERE id = ?').bind(id).run();
+  await logAudit(env, user, 'delete_link', 'link', id, null);
   return json({ ok: true });
 }

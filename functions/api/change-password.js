@@ -1,4 +1,4 @@
-import { json, requireAuth, verifyPassword, hashPassword, randomHex } from './_utils.js';
+import { json, requireAuth, verifyPassword, hashPassword, randomHex, getCookie, logAudit } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const { user, error } = await requireAuth(request, env);
@@ -34,6 +34,16 @@ export async function onRequestPost({ request, env }) {
   )
     .bind(newHash, newSalt, user.id)
     .run();
+
+  // Invalida todas as OUTRAS sessões deste usuário (mantém só a atual).
+  // Protege contra um token vazado ou uma sessão esquecida em outro
+  // computador continuar valendo depois que a senha foi trocada.
+  const currentToken = getCookie(request, 'session');
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?')
+    .bind(user.id, currentToken || '')
+    .run();
+
+  await logAudit(env, user, 'change_password', 'user', user.id, 'Usuário trocou a própria senha.');
 
   return json({ ok: true });
 }

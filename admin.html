@@ -33,6 +33,7 @@
       <button class="admin-tab" data-tab="relatorios">Relatórios</button>
       <button class="admin-tab" data-tab="perfis">Perfis de acesso</button>
       <button class="admin-tab" data-tab="usuarios">Usuários</button>
+      <button class="admin-tab" data-tab="auditoria">Auditoria</button>
       <button class="admin-tab" data-tab="conta">Minha Conta</button>
     </div>
 
@@ -241,6 +242,17 @@
           <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0">O usuário será obrigado a trocar essa senha provisória no primeiro login.</p>
           <div id="addUserMsg" class="form-msg" style="grid-column:1/-1"></div>
         </form>
+      </section>
+
+      <!-- Auditoria -->
+      <section class="panel-section" data-panel="auditoria">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Auditoria</div>
+            <div class="panel-section__desc">Últimas 100 ações administrativas (criação/edição/exclusão de usuários, links, permissões e solicitações). Visível só para o Super Administrador.</div>
+          </div>
+        </div>
+        <div id="auditLogWrap"><div class="skeleton-loading">Carregando…</div></div>
       </section>
 
       <!-- Minha conta -->

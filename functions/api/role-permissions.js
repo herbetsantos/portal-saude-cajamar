@@ -1,4 +1,4 @@
-import { json, requireAdminPanel, requireSuperAdmin } from './_utils.js';
+import { json, requireAdminPanel, requireSuperAdmin, logAudit } from './_utils.js';
 import { FEATURES, isFeatureKey } from './_permissions.js';
 
 // super_admin não entra nessa lista: sempre tem tudo liberado e não é editável.
@@ -35,7 +35,7 @@ export async function onRequestGet({ request, env }) {
 // PUT: substitui o teto de todos os papéis de uma vez.
 // body: { permissions: { user: { receituario: true, ... }, admin_unidade: {...}, admin: {...} } }
 export async function onRequestPut({ request, env }) {
-  const { error } = await requireSuperAdmin(request, env);
+  const { user, error } = await requireSuperAdmin(request, env);
   if (error) return error;
 
   let body;
@@ -61,6 +61,8 @@ export async function onRequestPut({ request, env }) {
   } catch {
     return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
   }
+
+  await logAudit(env, user, 'update_role_permissions', 'role_permissions', null, permissions);
 
   return json({ ok: true });
 }

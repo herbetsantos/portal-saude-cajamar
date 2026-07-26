@@ -1,4 +1,4 @@
-import { json, requireAdminPanel, getAdminUnidades } from '../_utils.js';
+import { json, requireAdminPanel, getAdminUnidades, logAudit } from '../_utils.js';
 
 export async function onRequestPut({ request, env, params }) {
   const { user: admin, error } = await requireAdminPanel(request, env);
@@ -36,6 +36,7 @@ export async function onRequestPut({ request, env, params }) {
     await env.DB.prepare(
       `UPDATE signup_requests SET status = 'rejected', resolved_at = datetime('now'), resolved_by = ? WHERE id = ?`
     ).bind(admin.id, id).run();
+    await logAudit(env, admin, 'reject_signup_request', 'signup_request', id, { username: reqRow.username });
     return json({ ok: true });
   }
 
@@ -53,6 +54,8 @@ export async function onRequestPut({ request, env, params }) {
   await env.DB.prepare(
     `UPDATE signup_requests SET status = 'approved', resolved_at = datetime('now'), resolved_by = ? WHERE id = ?`
   ).bind(admin.id, id).run();
+
+  await logAudit(env, admin, 'approve_signup_request', 'signup_request', id, { username: reqRow.username, unidade: reqRow.unidade });
 
   return json({ ok: true });
 }

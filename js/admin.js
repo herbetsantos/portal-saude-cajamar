@@ -1279,6 +1279,62 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
   }
 });
 
+// ---------- Auditoria ----------
+
+function fmtAuditWhen(iso) {
+  if (!iso) return '';
+  // created_at vem como "YYYY-MM-DD HH:MM:SS" (UTC, formato do SQLite datetime('now')).
+  const [datePart, timePart] = iso.split(' ');
+  const [y, m, d] = (datePart || '').split('-');
+  return y ? `${d}/${m}/${y} ${timePart || ''}` : iso;
+}
+
+const AUDIT_ACTION_LABEL = {
+  create_user: 'Criou usuário',
+  update_user: 'Editou usuário',
+  delete_user: 'Excluiu usuário',
+  create_link: 'Criou link',
+  update_link: 'Editou link',
+  delete_link: 'Excluiu link',
+  update_role_permissions: 'Alterou perfis de acesso',
+  approve_signup_request: 'Aprovou solicitação de cadastro',
+  reject_signup_request: 'Rejeitou solicitação de cadastro',
+  change_password: 'Trocou a própria senha',
+};
+
+async function loadAuditLogTable() {
+  const wrap = document.getElementById('auditLogWrap');
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+
+  let data;
+  try {
+    const res = await fetch('/api/audit-log?limit=100', { credentials: 'same-origin' });
+    data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Não foi possível carregar a auditoria.');
+  } catch (err) {
+    wrap.innerHTML = `<p class="muted">Não foi possível carregar a auditoria (${escapeHtml(err.message)}). Confira se a migração migration_security.sql já foi executada no banco D1.</p>`;
+    return;
+  }
+
+  const entries = data.entries || [];
+  wrap.innerHTML = entries.length ? `
+    <table class="data-table">
+      <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Alvo</th><th>Detalhes</th></tr></thead>
+      <tbody>
+        ${entries.map((e) => `
+          <tr>
+            <td>${escapeHtml(fmtAuditWhen(e.created_at))}</td>
+            <td>${escapeHtml(e.actor_username || '—')}</td>
+            <td>${escapeHtml(AUDIT_ACTION_LABEL[e.action] || e.action)}</td>
+            <td>${escapeHtml(e.entity_type)}${e.entity_id ? ' #' + escapeHtml(String(e.entity_id)) : ''}</td>
+            <td class="muted" style="font-size:12px;max-width:320px;word-break:break-word">${escapeHtml(e.details || '')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : '<p class="muted">Nenhum registro de auditoria ainda.</p>';
+}
+
 // ---------- Inicialização ----------
 
 (async () => {
@@ -1306,6 +1362,8 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
   if (currentUser.role !== 'super_admin') {
     const perfisTab = document.querySelector('.admin-tab[data-tab="perfis"]');
     if (perfisTab) perfisTab.style.display = 'none';
+    const auditoriaTab = document.querySelector('.admin-tab[data-tab="auditoria"]');
+    if (auditoriaTab) auditoriaTab.style.display = 'none';
   }
 
   if (currentUser.role === 'admin_unidade') {
@@ -1331,6 +1389,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async (
   }
   if (currentUser.role === 'super_admin') {
     loadRolePermsTable();
+    loadAuditLogTable();
   }
   loadSignupRequestsTable();
   loadUsersTable();

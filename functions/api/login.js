@@ -1,4 +1,13 @@
-import { json, verifyPassword, createSession, sessionCookieHeader } from './_utils.js';
+import {
+  json,
+  verifyPassword,
+  createSession,
+  sessionCookieHeader,
+  getClientIP,
+  checkLoginRateLimit,
+  recordLoginAttempt,
+  maybeCleanupExpiredSessions,
+} from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -10,9 +19,20 @@ export async function onRequestPost({ request, env }) {
 
   const username = (body.username || '').trim().toLowerCase();
   const password = body.password || '';
+  const ip = getClientIP(request);
 
   if (!username || !password) {
     return json({ error: 'Informe usuário e senha.' }, 400);
+  }
+
+  // Bloqueia por alguns minutos após muitas tentativas falhas seguidas para
+  // o mesmo usuário ou vindas do mesmo IP (proteção contra força bruta).
+  const rateLimit = await checkLoginRateLimit(env, username, ip);
+  if (!rateLimit.allowed) {
+    return json(
+      { error: `Muitas tentativas de login. Tente novamente em alguns minutos.` },
+      429
+    );
   }
 
   const user = await env.DB.prepare(
@@ -25,13 +45,20 @@ export async function onRequestPost({ request, env }) {
   const invalidMsg = { error: 'Usuário ou senha inválidos.' };
 
   if (!user || !user.active) {
+    await recordLoginAttempt(env, username, ip, false);
     return json(invalidMsg, 401);
   }
 
   const ok = await verifyPassword(password, user.salt, user.password_hash);
   if (!ok) {
+    await recordLoginAttempt(env, username, ip, false);
     return json(invalidMsg, 401);
   }
+
+  await recordLoginAttempt(env, username, ip, true);
+  // Aproveita o login bem-sucedido para, ocasionalmente, limpar sessões
+  // expiradas de qualquer usuário (ver comentário em maybeCleanupExpiredSessions).
+  await maybeCleanupExpiredSessions(env);
 
   const token = await createSession(env, user.id);
 

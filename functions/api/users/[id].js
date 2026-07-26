@@ -1,4 +1,4 @@
-import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex } from '../_utils.js';
+import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex, logAudit } from '../_utils.js';
 
 export async function onRequestPut({ request, env, params }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
@@ -94,6 +94,20 @@ export async function onRequestPut({ request, env, params }) {
   values.push(id);
   await env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...values).run();
 
+  // Se a senha foi trocada pelo admin, derruba as sessões já abertas do
+  // usuário-alvo (ele terá que logar de novo com a nova senha).
+  if (newPassword) {
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
+  }
+
+  await logAudit(env, requester, 'update_user', 'user', id, {
+    name: name || undefined,
+    role: role || undefined,
+    active: typeof active === 'boolean' ? active : undefined,
+    unidade: typeof unidade === 'string' ? unidade : undefined,
+    passwordChanged: !!newPassword,
+  });
+
   return json({ ok: true });
 }
 
@@ -105,7 +119,7 @@ export async function onRequestDelete({ request, env, params }) {
   if (!id) return json({ error: 'ID inválido.' }, 400);
   if (id === requester.id) return json({ error: 'Você não pode excluir o seu próprio usuário.' }, 400);
 
-  const target = await env.DB.prepare('SELECT id, role, unidade FROM users WHERE id = ?').bind(id).first();
+  const target = await env.DB.prepare('SELECT id, username, role, unidade FROM users WHERE id = ?').bind(id).first();
   if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
   if (requester.role === 'admin_unidade') {
@@ -128,6 +142,10 @@ export async function onRequestDelete({ request, env, params }) {
 
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+
+  await logAudit(env, requester, 'delete_user', 'user', id, {
+    username: target.username, role: target.role,
+  });
 
   return json({ ok: true });
 }

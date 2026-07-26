@@ -1,4 +1,4 @@
-import { json, requireAuth, requireAdmin } from '../_utils.js';
+import { json, requireAuth, requireAdmin, logAudit } from '../_utils.js';
 import { isFeatureKey } from '../_permissions.js';
 
 const CATEGORIES = ['ferramenta', 'documento', 'manual'];
@@ -39,7 +39,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const { error } = await requireAdmin(request, env);
+  const { user, error } = await requireAdmin(request, env);
   if (error) return error;
 
   let body;
@@ -60,6 +60,8 @@ export async function onRequestPost({ request, env }) {
   )
     .bind(category, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, feature_key || null)
     .run();
+
+  await logAudit(env, user, 'create_link', 'link', result.meta.last_row_id, { category, title: title.trim(), url: url.trim() });
 
   return json({ ok: true, id: result.meta.last_row_id }, 201);
 }

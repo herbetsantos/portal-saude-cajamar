@@ -35,6 +35,39 @@ CREATE TABLE sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Índice para acelerar a invalidação de sessões de um usuário (troca de
+-- senha, exclusão de conta) e a limpeza periódica de sessões expiradas.
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+
+-- Registro de tentativas de login (sucesso e falha), usado para aplicar um
+-- bloqueio temporário por usuário/IP após várias falhas seguidas e conter
+-- ataques de força bruta. Ver checkLoginRateLimit()/recordLoginAttempt() em
+-- functions/api/_utils.js.
+CREATE TABLE login_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL,
+  ip TEXT,
+  success INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_login_attempts_username_time ON login_attempts(username, created_at);
+CREATE INDEX idx_login_attempts_ip_time ON login_attempts(ip, created_at);
+
+-- Trilha de auditoria: quem fez o quê (criação/edição/exclusão de usuários,
+-- links, permissões, aprovações de cadastro etc.), para investigação futura.
+CREATE TABLE audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_user_id INTEGER,
+  actor_username TEXT,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT,
+  details TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
+
 CREATE TABLE links (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   category TEXT NOT NULL CHECK (category IN ('ferramenta','documento','manual')),

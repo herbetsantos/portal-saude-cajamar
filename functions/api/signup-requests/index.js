@@ -1,4 +1,4 @@
-import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex } from '../_utils.js';
+import { json, requireAdminPanel, getAdminUnidades, hashPassword, randomHex, verifyTurnstile, getClientIP } from '../_utils.js';
 
 export async function onRequestGet({ request, env }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
@@ -37,6 +37,14 @@ export async function onRequestPost({ request, env }) {
   const username = (body.username || '').trim().toLowerCase();
   const password = body.password || '';
   const unidade = (body.unidade || '').trim();
+
+  // Protege o formulário público (sem login) contra automação: envio em
+  // massa de solicitações falsas e uso do endpoint para enumerar usernames
+  // já cadastrados (a resposta abaixo diferencia "já existe" de "não existe").
+  const turnstileOK = await verifyTurnstile(body.turnstileToken, env, getClientIP(request));
+  if (!turnstileOK) {
+    return json({ error: 'Não foi possível confirmar que você não é um robô. Recarregue a página e tente novamente.' }, 400);
+  }
 
   if (!name) return json({ error: 'Informe seu nome completo.' }, 400);
   if (!/^[a-z0-9._-]{3,32}$/.test(username)) {

@@ -38,7 +38,7 @@
           <label for="confirmPassword">Confirmar senha</label>
           <input type="password" id="confirmPassword" required minlength="8">
         </div>
-        <div class="field" id="turnstileField" style="display:none">
+        <div class="field field--turnstile" id="turnstileField" style="display:none">
           <div id="turnstileWidget"></div>
         </div>
         <button type="submit" class="btn btn--accent" id="submitBtn">Enviar solicitação</button>
@@ -69,14 +69,14 @@
     let turnstileScriptLoaded = false;
 
     if (TURNSTILE_SITE_KEY) {
-      document.getElementById('turnstileField').style.display = '';
+      document.getElementById('turnstileField').style.display = 'flex';
       const s = document.createElement('script');
       s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
       s.async = true;
       s.defer = true;
       s.onload = () => {
         turnstileScriptLoaded = true;
-        window.turnstile.render('#turnstileWidget', { sitekey: TURNSTILE_SITE_KEY });
+        window.turnstile.render('#turnstileWidget', { sitekey: TURNSTILE_SITE_KEY, theme: 'light' });
       };
       document.head.appendChild(s);
     }

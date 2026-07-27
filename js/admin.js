@@ -12,6 +12,31 @@ const FERRAMENTA_FEATURE_OPTIONS = [
 ];
 let currentUser = null;
 
+// Nomes das unidades ativas, usados para preencher o campo "Unidade de
+// lotação" (select fixo) nos formulários de usuário — mesma fonte de dados
+// da aba Unidades e do Receituário. Carregado uma vez na inicialização.
+let UNIDADES_NOMES = [];
+
+async function loadUnidadesNomes() {
+  try {
+    const res = await fetch('/api/unidades', { credentials: 'same-origin' });
+    const data = await res.json();
+    UNIDADES_NOMES = (data.unidades || []).filter((u) => u.ativo).map((u) => u.nome);
+  } catch {
+    UNIDADES_NOMES = [];
+  }
+}
+
+// Monta as <option> do select de "Unidade de lotação". Se o valor atual do
+// usuário não estiver mais na lista (unidade renomeada/desativada depois),
+// ele é mantido como opção extra para não apagar o dado ao abrir o modal.
+function unidadeLotacaoOptionsHtml(selected) {
+  const nomes = [...UNIDADES_NOMES];
+  if (selected && !nomes.includes(selected)) nomes.push(selected);
+  return '<option value="">— selecione —</option>'
+    + nomes.map((n) => `<option value="${escapeAttr(n)}" ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+}
+
 function openModal(html, wide) {
   document.getElementById('modalBox').innerHTML = html;
   document.getElementById('modalBox').classList.toggle('modal--wide', !!wide);
@@ -715,6 +740,7 @@ document.getElementById('addUnidadeForm').addEventListener('submit', async (e) =
     if (!res.ok) throw new Error(data.error || 'Erro ao cadastrar unidade.');
     document.getElementById('addUnidadeForm').reset();
     await loadUnidadesTable();
+    await loadUnidadesNomes();
   } catch (err) {
     msgEl.className = 'form-msg is-error';
     msgEl.textContent = err.message;
@@ -772,6 +798,7 @@ function openEditUnidadeModal(u) {
       if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
       closeModal();
       await loadUnidadesTable();
+    await loadUnidadesNomes();
     } catch (err) {
       msgEl.className = 'form-msg is-error';
       msgEl.textContent = err.message;
@@ -793,6 +820,7 @@ function confirmDeleteUnidade(u) {
     await fetch(`/api/unidades/${encodeURIComponent(u.code)}`, { method: 'DELETE', credentials: 'same-origin' });
     closeModal();
     await loadUnidadesTable();
+    await loadUnidadesNomes();
   });
 }
 
@@ -1298,7 +1326,7 @@ function openEditUserModal(u) {
     </div>
     <div class="field">
       <label>Unidade de lotação</label>
-      <input type="text" id="editUUnidade" value="${escapeAttr(u.unidade || '')}">
+      <select id="editUUnidade">${unidadeLotacaoOptionsHtml(u.unidade || '')}</select>
     </div>
     <div class="field">
       <label>Papel</label>
@@ -1504,6 +1532,9 @@ async function loadAuditLogTable() {
   }
 
   currentUser = user;
+
+  await loadUnidadesNomes();
+  document.getElementById('uUnidade').innerHTML = unidadeLotacaoOptionsHtml('');
 
   if (currentUser.role === 'super_admin') {
     const opt = document.createElement('option');

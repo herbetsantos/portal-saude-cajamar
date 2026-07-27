@@ -646,6 +646,156 @@ async function openGroupReportsModal(g) {
 
 // ---------- Relatórios: cadastro ----------
 
+// ---------- Unidades ----------
+// Cadastro central de unidades de saúde: usado no Receituário e nas telas de
+// atribuição da aba Usuários. Cadastrar/editar/excluir é restrito ao Super
+// Administrador; os demais administradores veem a lista em modo consulta.
+
+async function loadUnidadesTable() {
+  const wrap = document.getElementById('unidadesTableWrap');
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+
+  const res = await fetch('/api/unidades', { credentials: 'same-origin' });
+  const data = await res.json();
+  const unidades = data.unidades || [];
+  const podeEditar = currentUser.role === 'super_admin';
+
+  wrap.innerHTML = unidades.length ? `
+    <table class="data-table">
+      <thead><tr><th>Nome</th><th>CNES</th><th>Endereço</th><th>Telefone</th><th>Status</th>${podeEditar ? '<th></th>' : ''}</tr></thead>
+      <tbody>
+        ${unidades.map((u) => `
+          <tr>
+            <td>${escapeHtml(u.nome)}</td>
+            <td>${escapeHtml(u.cnes || '—')}</td>
+            <td>${escapeHtml(u.endereco || '—')}</td>
+            <td>${escapeHtml(u.tel || '—')}</td>
+            <td>${u.ativo ? 'Ativa' : '<span class="muted">Inativa</span>'}</td>
+            ${podeEditar ? `
+              <td class="actions-cell"><div class="row-actions">
+                <button class="btn btn--outline btn--sm" data-edit-unidade="${escapeAttr(u.code)}">Editar</button>
+                <button class="btn btn--danger btn--sm" data-delete-unidade="${escapeAttr(u.code)}">Excluir</button>
+              </div></td>
+            ` : ''}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : `<div class="empty-state">Nenhuma unidade cadastrada ainda.</div>`;
+
+  if (podeEditar) {
+    wrap.querySelectorAll('[data-edit-unidade]').forEach((btn) => {
+      const u = unidades.find((x) => x.code === btn.dataset.editUnidade);
+      btn.addEventListener('click', () => openEditUnidadeModal(u));
+    });
+    wrap.querySelectorAll('[data-delete-unidade]').forEach((btn) => {
+      const u = unidades.find((x) => x.code === btn.dataset.deleteUnidade);
+      btn.addEventListener('click', () => confirmDeleteUnidade(u));
+    });
+  }
+}
+
+document.getElementById('addUnidadeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('addUnidadeMsg');
+  msgEl.className = 'form-msg';
+  try {
+    const res = await fetch('/api/unidades', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        nome: document.getElementById('uniNome').value.trim(),
+        cnes: document.getElementById('uniCnes').value.trim(),
+        endereco: document.getElementById('uniEndereco').value.trim(),
+        tel: document.getElementById('uniTel').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao cadastrar unidade.');
+    document.getElementById('addUnidadeForm').reset();
+    await loadUnidadesTable();
+  } catch (err) {
+    msgEl.className = 'form-msg is-error';
+    msgEl.textContent = err.message;
+  }
+});
+
+function openEditUnidadeModal(u) {
+  openModal(`
+    <h3>Editar unidade</h3>
+    <div id="editUnidadeMsg" class="form-msg"></div>
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="editUniNome" value="${escapeAttr(u.nome)}">
+    </div>
+    <div class="field">
+      <label>CNES</label>
+      <input type="text" id="editUniCnes" value="${escapeAttr(u.cnes || '')}">
+    </div>
+    <div class="field">
+      <label>Telefone</label>
+      <input type="text" id="editUniTel" value="${escapeAttr(u.tel || '')}">
+    </div>
+    <div class="field">
+      <label>Endereço</label>
+      <input type="text" id="editUniEndereco" value="${escapeAttr(u.endereco || '')}">
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="editUniAtivo" style="width:auto" ${u.ativo ? 'checked' : ''}>
+        Unidade ativa (aparece no Receituário e nos seletores de atribuição)
+      </label>
+    </div>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelEditUnidade" type="button">Cancelar</button>
+      <button class="btn btn--accent btn--sm" id="saveEditUnidade" type="button">Salvar alterações</button>
+    </div>
+  `);
+  document.getElementById('cancelEditUnidade').addEventListener('click', closeModal);
+  document.getElementById('saveEditUnidade').addEventListener('click', async () => {
+    const msgEl = document.getElementById('editUnidadeMsg');
+    try {
+      const res = await fetch(`/api/unidades/${encodeURIComponent(u.code)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          nome: document.getElementById('editUniNome').value.trim(),
+          cnes: document.getElementById('editUniCnes').value.trim(),
+          tel: document.getElementById('editUniTel').value.trim(),
+          endereco: document.getElementById('editUniEndereco').value.trim(),
+          ativo: document.getElementById('editUniAtivo').checked,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
+      closeModal();
+      await loadUnidadesTable();
+    } catch (err) {
+      msgEl.className = 'form-msg is-error';
+      msgEl.textContent = err.message;
+    }
+  });
+}
+
+function confirmDeleteUnidade(u) {
+  openModal(`
+    <h3>Excluir unidade</h3>
+    <p class="muted">Isso remove "${escapeHtml(u.nome)}" do Receituário e de qualquer atribuição de usuário já feita a ela. Se for só uma pausa temporária, prefira desativar em vez de excluir. Deseja continuar?</p>
+    <div class="modal__actions">
+      <button class="btn btn--outline btn--sm" id="cancelDelete" type="button">Cancelar</button>
+      <button class="btn btn--danger btn--sm" id="confirmDelete" type="button">Excluir</button>
+    </div>
+  `);
+  document.getElementById('cancelDelete').addEventListener('click', closeModal);
+  document.getElementById('confirmDelete').addEventListener('click', async () => {
+    await fetch(`/api/unidades/${encodeURIComponent(u.code)}`, { method: 'DELETE', credentials: 'same-origin' });
+    closeModal();
+    await loadUnidadesTable();
+  });
+}
+
 async function loadReportsTable() {
   const wrap = document.getElementById('reportsWrap');
   wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
@@ -1024,11 +1174,18 @@ async function openUserConfigModal(u) {
     // ---- Unidades que gerencia (admin_unidade) ----
     let gestaoHtml = '';
     if (showGestao && gestaoData) {
+      // União da lista canônica de unidades com o que já estava atribuído
+      // (preserva valores antigos em texto livre, ex.: "Secretaria", que não
+      // fazem parte do cadastro de unidades do Receituário).
+      const opcoesGestao = [...gestaoData.unidades];
+      gestaoData.atribuidas.forEach((a) => {
+        if (!opcoesGestao.some((o) => o.toLowerCase() === a.toLowerCase())) opcoesGestao.push(a);
+      });
       gestaoHtml = `
         <div class="panel-section__title" style="font-size:15px;margin-top:22px">Unidades que gerencia</div>
         <p class="muted" style="margin:2px 0 8px">Unidades sob a gestão de ${escapeHtml(u.name)}.</p>
         <div class="checkbox-list" id="userCfgGestao">
-          ${gestaoData.unidades.map((un) => `
+          ${opcoesGestao.map((un) => `
             <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
               <input type="checkbox" value="${escapeAttr(un)}" ${gestaoData.atribuidas.map((a) => a.toLowerCase()).includes(un.toLowerCase()) ? 'checked' : ''} style="width:auto">
               ${escapeHtml(un)}
@@ -1364,6 +1521,9 @@ async function loadAuditLogTable() {
     if (perfisTab) perfisTab.style.display = 'none';
     const auditoriaTab = document.querySelector('.admin-tab[data-tab="auditoria"]');
     if (auditoriaTab) auditoriaTab.style.display = 'none';
+  } else {
+    // Só o Super Administrador pode cadastrar novas unidades.
+    document.getElementById('addUnidadeForm').style.display = '';
   }
 
   if (currentUser.role === 'admin_unidade') {
@@ -1386,6 +1546,7 @@ async function loadAuditLogTable() {
     loadLinksTable('manual');
     loadReportGroupsTable();
     loadReportsTable();
+    loadUnidadesTable();
   }
   if (currentUser.role === 'super_admin') {
     loadRolePermsTable();

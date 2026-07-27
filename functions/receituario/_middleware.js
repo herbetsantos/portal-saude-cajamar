@@ -4,23 +4,20 @@
 // Regras:
 //  - Usuário precisa estar autenticado (cookie de sessão válido), senão
 //    é redirecionado para /login.html?next=...
-//  - O código da unidade (?unidade=xxx) só é aceito se estiver entre as
-//    unidades atribuídas ao usuário (admin: todas). Se o parâmetro estiver
-//    ausente, inválido ou não permitido, escolhemos a primeira unidade
-//    permitida do usuário — nunca confiamos no valor vindo da URL.
-//  - Se o usuário comum não tiver nenhuma unidade atribuída, é redirecionado
-//    de volta ao portal com uma mensagem.
-//  - O HTML é reescrito para deixar selecionada apenas a unidade permitida e
-//    remover do <select> as unidades que o usuário não pode ver. Se o
-//    usuário tiver mais de uma unidade permitida, o seletor é exibido para
-//    que ele escolha entre as suas; caso contrário permanece oculto.
+//  - Usuário precisa ter a funcionalidade "receituario" liberada.
+//  - Usuário precisa ter ao menos uma unidade liberada (admin: todas as
+//    unidades ativas automaticamente).
+//
+// A própria lista de unidades que aparece no seletor (e o filtro de qual
+// unidade cada usuário pode escolher) é resolvida no cliente, chamando
+// GET /api/unidades/minhas — que aplica exatamente a mesma checagem de
+// permissão feita aqui. Isso elimina a necessidade de reescrever o HTML
+// estático a cada novo cadastro de unidade.
 
 import { getAuthUser } from '../api/_utils.js';
 import { getUnidadesPermitidas } from '../api/_unidades.js';
 import { getUserPermissions } from '../api/_permissions.js';
 
-// Cloudflare Pages chama onRequest(context) para toda requisição que bater
-// nesta rota, com { request, env, next, params, ... }.
 export async function onRequest(context) {
   return protectAndServe(context);
 }
@@ -50,36 +47,5 @@ async function protectAndServe({ request, env, next }) {
     );
   }
 
-  const solicitada = url.searchParams.get('unidade');
-  const unidadeFinal = permitidas.includes(solicitada) ? solicitada : permitidas[0];
-
-  const response = await next();
-  const permitidasSet = new Set(permitidas);
-  const mostrarSeletor = permitidas.length > 1;
-
-  return new HTMLRewriter()
-    .on('select#unidade', {
-      element(element) {
-        if (mostrarSeletor) {
-          // Remove o display:none para o usuário poder escolher entre
-          // as unidades que lhe foram atribuídas.
-          element.removeAttribute('style');
-        }
-      },
-    })
-    .on('select#unidade option', {
-      element(element) {
-        const value = element.getAttribute('value');
-        if (!permitidasSet.has(value)) {
-          element.remove();
-          return;
-        }
-        if (value === unidadeFinal) {
-          element.setAttribute('selected', 'selected');
-        } else {
-          element.removeAttribute('selected');
-        }
-      },
-    })
-    .transform(response);
+  return next();
 }

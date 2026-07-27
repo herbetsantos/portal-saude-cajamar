@@ -112,25 +112,11 @@ body{font-family:'Montserrat',Arial,Helvetica,sans-serif;background:#e8e8e8;marg
   <div class="sidebar" id="sidebar">
     <h1>Receita Controle Especial</h1>
 
-    <select id="unidade" style="display:none">
-        <option value="upa">UPA 24h Vereador Luiz dos Santos Faria</option>
-        <option value="policlinica">Policlínica Municipal de Cajamar</option>
-        <option value="cer2">Centro Especializado em Reabilitação CER II</option>
-        <option value="portal">ESF Carlos dos Santos</option>
-        <option value="km43">Posto de Saúde Nadília de Oliveira Santos</option>
-        <option value="beloplanalto">PSF Belo Planalto</option>
-        <option value="marialuiza">PSF Dra. Maria de Lourdes Mendonça Bravo</option>
-        <option value="guaturinho">PSF Edivaldo Soares Massagardi</option>
-        <option value="parquesaoroberto">UBS Enf. Leontina Martins França</option>
-        <option value="ponunduva">USF Maria Aparecida Missé</option>
-        <option value="cajamarcento">USF Vereador Joaquim Alves de Castro</option>
-        <option value="jordanesia">UBS Enfermeiro Carlos Moreira da Silva</option>
-        <option value="polvilho">UBS Dra. Izabel Gratieri</option>
-        <option value="manoelinacio">USF Manoel Inácio da Silva</option>
-        <option value="ceo">Centro de Especialidades Odontológicas</option>
-        <option value="caps">CAPS Cajamar</option>
-        <option value="capsij">CAPS Infanto/Juvenil</option>
-      </select>
+    <div class="f" id="unidadeField" style="display:none">
+      <label>Unidade</label>
+      <select id="unidade" onchange="update()"></select>
+    </div>
+    <div id="unidadeErro" class="f" style="display:none;color:#c0392b;font-size:12px"></div>
 
     <div class="sec">Paciente</div>
     <div class="f"><label>Nome completo</label><input id="pac_nome" placeholder="Nome do paciente" oninput="update()"></div>
@@ -175,110 +161,50 @@ body{font-family:'Montserrat',Arial,Helvetica,sans-serif;background:#e8e8e8;marg
   initPortalChrome('ferramentas');
 </script>
 <script>
-const UNIDADES = {
-  policlinica: {
-    nome: "Policlínica Municipal de Cajamar",
-    cnes: "4982037",
-    endereco: "Av. Dr. Antonio João Abdalla, 1500 - Cristais, Cajamar/SP",
-    tel: "(11) 4446-0100"
-  },
-  cer2: {
-    nome: "Centro Especializado em Reabilitação CER II",
-    cnes: "5204887",
-    endereco: "Av. Dr. Antonio João Abdalla, 1500 - Cristais, Cajamar/SP",
-    tel: "(11) 4446-0100"
-  },
-  portal: {
-    nome: "ESF Carlos dos Santos",
-    cnes: "968358",
-    endereco: "Rua das Cravinas, 198 - Portal Ipês III, Cajamar/SP",
-    tel: "(11) 4446-0124"
-  },
-  km43: {
-    nome: "Posto de Saúde Nadília de Oliveira Santos",
-    cnes: "5270006",
-    endereco: "Rua Bela Vista, 1200 - São Benedito, Cajamar/SP",
-    tel: "(11) 4446-0115"
-  },
-  beloplanalto: {
-    nome: "PSF Belo Planalto",
-    cnes: "3672891",
-    endereco: "Rua Nercílio José dos Santos, 58 - Polvilho, Cajamar/SP",
-    tel: "(11) 4446-0112"
-  },
-  marialuiza: {
-    nome: "PSF Dra. Maria de Lourdes Mendonça Bravo",
-    cnes: "2096269",
-    endereco: "Av. Arujá, 208 - Colina Maria Luíza, Cajamar/SP",
-    tel: "(11) 4446-0116"
-  },
-  guaturinho: {
-    nome: "PSF Edivaldo Soares Massagardi",
-    cnes: "7068840",
-    endereco: "Rua Barueri, 198 - Guaturinho, Cajamar/SP",
-    tel: "(11) 4446-0111"
-  },
-  parquesaoroberto: {
-    nome: "UBS Enf. Leontina Martins França",
-    cnes: "2096242",
-    endereco: "Av. Dr. José Luíz Leme Maciel, 179 - Jordanésia, Cajamar/SP",
-    tel: "(11) 4446-0109"
-  },
-  ponunduva: {
-    nome: "USF Maria Aparecida Missé",
-    cnes: "2096226",
-    endereco: "Rua Joaquim Rodrigues Pontes, 203 - Ponunduva, Cajamar/SP",
-    tel: "(11) 4446-0114"
-  },
-  cajamarcento: {
-    nome: "USF Vereador Joaquim Alves de Castro",
-    cnes: "2096161",
-    endereco: "Av. Prof. Walter Ribas de Andrade, 544 - Água Fria, Cajamar/SP",
-    tel: "(11) 4446-0110"
-  },
-  jordanesia: {
-    nome: "UBS Enfermeiro Carlos Moreira da Silva",
-    cnes: "2096234",
-    endereco: "Av. Antônio Cândido Machado, 1769 - Jordanésia, Cajamar/SP",
-    tel: "(11) 4446-0107"
-  },
-  polvilho: {
-    nome: "UBS Dra. Izabel Gratieri",
-    cnes: "2096188",
-    endereco: "Rua Timburi, 121 - Panorama I - Polvilho, Cajamar/SP",
-    tel: "(11) 4446-0108"
-  },
-  manoelinacio: {
-    nome: "USF Manoel Inácio da Silva",
-    cnes: "3437280",
-    endereco: "Av. das Juritis, 385 - Pq. Maria Aparecida, Cajamar/SP",
-    tel: "(11) 4446-0117"
-  },
-  ceo: {
-    nome: "Centro de Especialidades Odontológicas",
-    cnes: "4075773",
-    endereco: "Av. Dr. Antonio João Abdalla, 1500 - 2º andar - Cristais, Cajamar/SP",
-    tel: "(11) 4446-0117"
-  },
-  caps: {
-    nome: "CAPS Cajamar",
-    cnes: "9077618",
-    endereco: "Rua Rita Maria de Jesus, 20 - Polvilho, Cajamar/SP",
-    tel: "(11) 4446-0121"
-  },
-  capsij: {
-    nome: "CAPS Infanto/Juvenil",
-    cnes: "499889",
-    endereco: "Rua das Moréias, 55 - Portal 3 - Polvilho, Cajamar/SP",
-    tel: "(11) 4446-0122"
-  },
-  upa: {
-    nome: "UPA 24h Vereador Luiz dos Santos Faria",
-    cnes: "7068824",
-    endereco: "Rua Alfredo Del'Vigna, 253 - Jordanésia, Cajamar/SP",
-    tel: "(11) 4447-4058"
+// Preenchido em tempo de execução por carregarUnidades(), a partir de
+// GET /api/unidades/minhas — que já devolve só as unidades que o usuário
+// autenticado pode usar (o cadastro completo fica em Administração > Unidades,
+// visível só ao Super Administrador). Mapa code -> {nome, cnes, endereco, tel}.
+let UNIDADES = {};
+
+// Busca as unidades permitidas do usuário, popula o <select id="unidade">
+// e decide a unidade inicial (respeitando ?unidade=xxx na URL, se permitida).
+// Só depois disso a primeira renderização do documento acontece.
+async function carregarUnidades(){
+  const sel = document.getElementById('unidade');
+  const campo = document.getElementById('unidadeField');
+  const erroBox = document.getElementById('unidadeErro');
+  try {
+    const res = await fetch('/api/unidades/minhas', { credentials: 'same-origin' });
+    if(!res.ok) throw new Error('Não foi possível carregar as unidades.');
+    const data = await res.json();
+    const unidades = data.unidades || [];
+
+    if(!unidades.length){
+      erroBox.style.display = '';
+      erroBox.textContent = 'Nenhuma unidade liberada para o seu usuário. Fale com o administrador do portal.';
+      return false;
+    }
+
+    UNIDADES = {};
+    unidades.forEach(u => { UNIDADES[u.code] = u; });
+
+    sel.innerHTML = unidades.map(u => `<option value="${esc(u.code)}">${esc(u.nome)}</option>`).join('');
+
+    const pedida = new URLSearchParams(location.search).get('unidade');
+    sel.value = unidades.some(u => u.code === pedida) ? pedida : unidades[0].code;
+
+    // Só exibe o seletor quando há mais de uma unidade para escolher;
+    // com uma única unidade permitida, ela é usada automaticamente.
+    if(unidades.length > 1) campo.style.display = '';
+
+    return true;
+  } catch (e) {
+    erroBox.style.display = '';
+    erroBox.textContent = 'Não foi possível carregar as unidades. Recarregue a página.';
+    return false;
   }
-};
+}
 
 function logosHtml(){
   return `
@@ -588,7 +514,15 @@ function clearForm(){
   addMed();   // recria uma linha de medicamento vazia (já chama update)
 }
 
-addMed();   // inicia com uma linha de medicamento e renderiza
+(async function init(){
+  const ok = await carregarUnidades();
+  if(!ok){
+    document.querySelector('.btn-print').disabled = true;
+    document.querySelector('.btn-print').style.opacity = .5;
+    return;
+  }
+  addMed();   // inicia com uma linha de medicamento e renderiza
+})();
 </script>
 </body>
 </html>

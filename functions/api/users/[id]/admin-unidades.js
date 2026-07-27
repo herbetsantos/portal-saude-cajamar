@@ -1,7 +1,11 @@
 import { json, requireSuperAdmin } from '../../_utils.js';
+import { listUnidades } from '../../_unidades.js';
 
-// GET: lista as unidades já usadas por algum usuário no sistema + quais
-// estão atribuídas a este admin_unidade.
+// GET: lista as unidades cadastradas (mesma lista usada no Receituário) +
+// quais estão atribuídas a este admin_unidade. Antes essa lista vinha dos
+// valores livres já usados no campo "Unidade de lotação" de outros
+// usuários; agora usa o cadastro canônico de unidades para evitar
+// divergências de nome/grafia.
 export async function onRequestGet({ request, env, params }) {
   const { error } = await requireSuperAdmin(request, env);
   if (error) return error;
@@ -12,16 +16,14 @@ export async function onRequestGet({ request, env, params }) {
   const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
   if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
-  const { results: todas } = await env.DB.prepare(
-    `SELECT DISTINCT unidade FROM users WHERE unidade IS NOT NULL AND trim(unidade) <> '' ORDER BY unidade ASC`
-  ).all();
+  const todas = await listUnidades(env, { onlyActive: true });
 
   const { results: atribuidas } = await env.DB.prepare(
     'SELECT unidade FROM admin_unidades WHERE admin_user_id = ?'
   ).bind(id).all();
 
   return json({
-    unidades: todas.map((r) => r.unidade),
+    unidades: todas.map((u) => u.nome),
     atribuidas: atribuidas.map((r) => r.unidade),
   });
 }

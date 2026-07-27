@@ -31,6 +31,7 @@
       <button class="admin-tab" data-tab="documento">Documentos Úteis</button>
       <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
       <button class="admin-tab" data-tab="relatorios">Relatórios</button>
+      <button class="admin-tab" data-tab="unidades">Unidades</button>
       <button class="admin-tab" data-tab="perfis">Perfis de acesso</button>
       <button class="admin-tab" data-tab="usuarios">Usuários</button>
       <button class="admin-tab" data-tab="auditoria">Auditoria</button>
@@ -184,6 +185,40 @@
             <button type="submit" class="btn btn--accent btn--sm">Adicionar relatório</button>
           </div>
           <div id="addReportMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+      </section>
+
+      <!-- Unidades -->
+      <section class="panel-section" data-panel="unidades">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Unidades de saúde</div>
+            <div class="panel-section__desc">Unidades disponíveis no Receituário e nas telas de atribuição da aba Usuários. Cadastrar, editar ou excluir é restrito ao Super Administrador; unidades inativas somem dos seletores, mas ficam preservadas no histórico.</div>
+          </div>
+        </div>
+        <div id="unidadesTableWrap"><div class="skeleton-loading">Carregando…</div></div>
+
+        <form id="addUnidadeForm" class="inline-form" style="display:none">
+          <div class="field field--full">
+            <label for="uniNome">Nome da unidade</label>
+            <input type="text" id="uniNome" required placeholder="Ex: UBS Jardim das Flores">
+          </div>
+          <div class="field">
+            <label for="uniCnes">CNES</label>
+            <input type="text" id="uniCnes" placeholder="Ex: 1234567">
+          </div>
+          <div class="field">
+            <label for="uniTel">Telefone</label>
+            <input type="text" id="uniTel" placeholder="Ex: (11) 4446-0100">
+          </div>
+          <div class="field field--full">
+            <label for="uniEndereco">Endereço</label>
+            <input type="text" id="uniEndereco" placeholder="Ex: Rua Exemplo, 100 - Bairro, Cajamar/SP">
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Cadastrar unidade</button>
+          </div>
+          <div id="addUnidadeMsg" class="form-msg" style="grid-column:1/-1"></div>
         </form>
       </section>
 

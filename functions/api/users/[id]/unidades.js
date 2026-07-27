@@ -1,7 +1,9 @@
 import { json, requireAdmin } from '../../_utils.js';
-import { UNIDADES, isUnidadeCode } from '../../_unidades.js';
+import { listUnidades, isUnidadeCode } from '../../_unidades.js';
 
-// GET: lista todas as unidades existentes + quais estão atribuídas ao usuário
+// GET: lista todas as unidades cadastradas (ativas) + quais estão atribuídas
+// ao usuário. Mesma lista usada no seletor do Receituário (Administração >
+// Unidades é quem cadastra novas).
 export async function onRequestGet({ request, env, params }) {
   const { error } = await requireAdmin(request, env);
   if (error) return error;
@@ -12,6 +14,8 @@ export async function onRequestGet({ request, env, params }) {
   const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(id).first();
   if (!target) return json({ error: 'Usuário não encontrado.' }, 404);
 
+  const todas = await listUnidades(env, { onlyActive: true });
+
   const { results } = await env.DB.prepare(
     'SELECT unidade_code FROM user_unidades WHERE user_id = ?'
   )
@@ -21,7 +25,8 @@ export async function onRequestGet({ request, env, params }) {
 
   return json({
     role: target.role,
-    unidades: UNIDADES.map((u) => ({ ...u, atribuida: target.role === 'admin' || target.role === 'super_admin' || atribuidas.has(u.code) })),  });
+    unidades: todas.map((u) => ({ ...u, atribuida: target.role === 'admin' || target.role === 'super_admin' || atribuidas.has(u.code) })),
+  });
 }
 
 // PUT: substitui a lista de unidades atribuídas ao usuário
@@ -43,8 +48,11 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const unidades = Array.isArray(body.unidades) ? body.unidades : [];
-  const validas = [...new Set(unidades.filter(isUnidadeCode))];
+  const unidades = Array.isArray(body.unidades) ? [...new Set(body.unidades)] : [];
+  const validas = [];
+  for (const code of unidades) {
+    if (await isUnidadeCode(env, code)) validas.push(code);
+  }
 
   await env.DB.prepare('DELETE FROM user_unidades WHERE user_id = ?').bind(id).run();
 

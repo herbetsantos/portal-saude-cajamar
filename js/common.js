@@ -10,7 +10,7 @@ const TOPBAR_HTML = `
       <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Abrir menu" aria-expanded="false">
         <span class="hamburger-icon"></span>
       </button>
-      <a class="brand" href="/portal.html"><img src="/assets/CAJAMAR PREFEITURA.png" alt="Prefeitura de Cajamar — Saúde"></a>
+      <a class="brand" href="/portal.html"><img src="/assets/IMAGOTIPO.png" alt="Prefeitura de Cajamar — Saúde"></a>
       <nav class="nav" id="mainNav">
         <div class="nav__item">
           <button class="nav__link" id="ferramentasTrigger" type="button">

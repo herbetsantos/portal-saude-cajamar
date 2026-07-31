@@ -736,12 +736,35 @@ function renderOpcoesUnidade(dropdownEl, query) {
 // via callback aoSelecionar(code). Reutilizado nas linhas de pacientes e
 // no destino do Termo de Remessa.
 function ligarComboUnidade(inputEl, dropdownEl, aoSelecionar) {
+  // O dropdown é "teleportado" para o <body> e posicionado com
+  // position:fixed sobre o input. Isso evita que ele seja cortado pelo
+  // overflow:hidden do .card (ou pelo overflow-x:auto da tabela de
+  // pacientes) quando aberto perto da borda inferior do card.
+  function posicionar() {
+    const r = inputEl.getBoundingClientRect();
+    dropdownEl.style.position = 'fixed';
+    dropdownEl.style.left = r.left + 'px';
+    dropdownEl.style.top = (r.bottom + 3) + 'px';
+    dropdownEl.style.width = r.width + 'px';
+    dropdownEl.style.right = 'auto';
+  }
+  function aoRolarOuRedimensionar() {
+    if (dropdownEl.classList.contains('aberto')) posicionar();
+  }
   function abrir() {
     renderOpcoesUnidade(dropdownEl, inputEl.value);
+    if (dropdownEl.parentElement !== document.body) {
+      document.body.appendChild(dropdownEl);
+    }
+    posicionar();
     dropdownEl.classList.add('aberto');
+    window.addEventListener('scroll', aoRolarOuRedimensionar, true);
+    window.addEventListener('resize', aoRolarOuRedimensionar);
   }
   function fechar() {
     dropdownEl.classList.remove('aberto');
+    window.removeEventListener('scroll', aoRolarOuRedimensionar, true);
+    window.removeEventListener('resize', aoRolarOuRedimensionar);
   }
   function selecionar(code) {
     const u = getUnidadePorCodigo(code);
@@ -823,6 +846,9 @@ function removePaciente(i) {
 
 function renderPacientes() {
   const tbody = document.getElementById('pac-tbody');
+  // Remove dropdowns de unidade que ficaram soltos no <body> de linhas
+  // antigas (ver ligarComboUnidade), antes de recriar as linhas.
+  document.querySelectorAll('body > .dd-paciente').forEach(d => d.remove());
   tbody.innerHTML = '';
 
   pacientes.forEach((p, i) => {
@@ -838,7 +864,7 @@ function renderPacientes() {
       <td class="dest-cell">
         <input type="text" class="p-dest-input" placeholder="Buscar unidade (nome ou iniciais)..."
                autocomplete="off" value="${esc(rotuloUnidade(p.destino))}">
-        <div class="unidade-dropdown"></div>
+        <div class="unidade-dropdown dd-paciente"></div>
       </td>
       <td><button class="btn-remove" onclick="removePaciente(${i})">×</button></td>`;
     tbody.appendChild(tr);

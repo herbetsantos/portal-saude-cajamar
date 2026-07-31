@@ -157,56 +157,61 @@ body {
 }
 
 /* ────────────────────────────────────────────────────────
-   GRID DE UNIDADES
+   BUSCA DE UNIDADE (combobox com busca por nome/iniciais)
 ──────────────────────────────────────────────────────── */
-.unidades-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
+.dest-cell, .form-group.dest-cell { position: relative; min-width: 210px; }
+.unidade-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  min-width: 260px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1.5px solid var(--ciano);
+  border-radius: 7px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.16);
+  z-index: 200;
+  text-align: left;
 }
-.unidade-card {
-  border: 1.5px solid var(--cinza-bd);
-  border-radius: 8px;
-  padding: 12px 14px;
-  background: #fafbfd;
-  position: relative;
-  transition: border-color 0.15s, box-shadow 0.15s;
+.unidade-dropdown.aberto { display: block; }
+.unidade-opcao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f2f5;
 }
-.unidade-card:hover { border-color: var(--ciano); box-shadow: 0 2px 8px rgba(58,143,200,0.12); }
-.unidade-card .sigla-tag {
-  display: inline-block;
+.unidade-opcao:last-child { border-bottom: none; }
+.unidade-opcao:hover, .unidade-opcao.destacada { background: #eaf4fc; }
+.unidade-opcao .uo-nome { flex: 1; color: var(--texto); font-weight: 500; }
+.unidade-opcao .uo-tag {
+  flex-shrink: 0;
   background: var(--azul);
   color: #fff;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 2px 8px;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
   border-radius: 4px;
-  margin-bottom: 6px;
+  white-space: nowrap;
 }
-.unidade-card .unidade-nome {
-  font-size: 0.88rem;
+.unidade-opcao-nova {
+  color: var(--verde);
   font-weight: 600;
-  color: var(--texto);
-  line-height: 1.3;
+  background: #f4faf6;
 }
-.unidade-card .btn-del-unidade {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: none;
-  border: none;
-  color: #ccc;
-  font-size: 1rem;
-  cursor: pointer;
-  line-height: 1;
-  padding: 2px 5px;
-  border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+.unidade-opcao-nova small { display: block; font-weight: 400; color: var(--texto-leve); font-size: 0.72rem; margin-top:2px; }
+.unidade-opcao-vazia {
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  color: var(--texto-leve);
 }
-.unidade-card .btn-del-unidade:hover { color: var(--vermelho); background: #fdecea; }
 
 /* ────────────────────────────────────────────────────────
    TABELA DE PACIENTES
@@ -395,72 +400,20 @@ footer {
      ABAS
 ══════════════════════════════════════════════════════ -->
 <div class="tabs">
-  <button class="tab-btn active" onclick="mudarAba('unidades', this)"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Unidades</button>
-  <button class="tab-btn"        onclick="mudarAba('guias',    this)"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>Guias</button>
+  <button class="tab-btn active" onclick="mudarAba('guias',    this)"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>Guias</button>
   <button class="tab-btn"        onclick="mudarAba('termos',   this)"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Termos de Remessa</button>
-  <button class="tab-btn"        onclick="mudarAba('gerar',    this)"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Gerar</button>
 </div>
 
 <!-- ══════════════════════════════════════════════════════
-     PAINEL 1 — UNIDADES
+     PAINEL 1 — GUIAS / PACIENTES
 ══════════════════════════════════════════════════════ -->
 <div class="container">
-<div id="painel-unidades" class="painel ativo">
-
-  <div class="card">
-    <div class="card-header">
-      <span>Cadastrar Nova Unidade</span>
-    </div>
-    <div class="card-body">
-      <div class="aviso info">
-        ℹ️ A <strong>sigla</strong> é a chave de identificação e não pode se repetir.
-        Use abreviações claras (ex.: <em>AME</em>, <em>CAPS</em>, <em>USF-POLO</em>).
-      </div>
-      <div class="form-row">
-        <div class="form-group" style="flex:0.5; min-width:110px">
-          <label>Sigla *</label>
-          <input type="text" id="new-sigla" placeholder="Ex: AME" maxlength="12"
-                 style="text-transform:uppercase"
-                 oninput="this.value=this.value.toUpperCase()">
-        </div>
-        <div class="form-group" style="flex:2">
-          <label>Nome Completo da Unidade *</label>
-          <input type="text" id="new-nome" placeholder="Ex: Ambulatório Municipal de Especialidades"
-                 onkeydown="if(event.key==='Enter') cadastrarUnidade()">
-        </div>
-        <div class="form-group" style="flex:0; min-width:auto; display:flex; align-items:flex-end">
-          <button class="btn-primario" onclick="cadastrarUnidade()">+ Cadastrar</button>
-        </div>
-      </div>
-      <div id="aviso-unidade" class="aviso erro" style="display:none"></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <span>Unidades Cadastradas</span>
-      <span class="badge" id="badge-unidades">0 unidade(s)</span>
-    </div>
-    <div class="card-body" style="padding:16px">
-      <div class="unidades-grid" id="unidades-grid">
-        <!-- cards das unidades renderizados via JS -->
-      </div>
-      <div id="empty-unidades" class="aviso info">
-        Nenhuma unidade cadastrada ainda. Use o formulário acima para começar.
-      </div>
-    </div>
-  </div>
-
-</div><!-- /painel-unidades -->
-
-<!-- ══════════════════════════════════════════════════════
-     PAINEL 2 — GUIAS / PACIENTES
-══════════════════════════════════════════════════════ -->
-<div id="painel-guias" class="painel">
+<div id="painel-guias" class="painel ativo">
 
   <div class="card">
     <div class="card-header"><span>Emissão</span></div>
     <div class="card-body">
+      <div id="aviso-unidades-api" class="aviso erro" style="display:none"></div>
       <div class="form-row">
         <div class="form-group" style="flex:0.5; min-width:160px">
           <label>Data da Remessa</label>
@@ -488,7 +441,7 @@ footer {
             <th style="width:32px; text-align:center">#</th>
             <th>Nome do Paciente</th>
             <th style="width:190px">Especialidade</th>
-            <th style="width:210px">Unidade de Destino</th>
+            <th style="width:230px">Unidade de Destino</th>
             <th style="width:36px"></th>
           </tr>
         </thead>
@@ -498,11 +451,29 @@ footer {
     <button class="btn-add" onclick="addPaciente()">+ Adicionar Paciente</button>
   </div>
 
+  <div class="card">
+    <div class="card-header"><span>Gerar Documentos</span></div>
+    <div class="card-body">
+      <p style="font-size:0.9rem; color:var(--texto-leve); margin-bottom:16px; line-height:1.6">
+        Será gerado <strong>um arquivo PDF por unidade de destino</strong>,
+        formatado como folha A4 paisagem com as duas vias A5 lado a lado,
+        pronto para impressão. Ou, se preferir, baixe tudo em
+        <strong>um único PDF</strong>, com uma guia por unidade em cada página.
+      </p>
+      <button class="btn-gerar" id="btn-gerar" onclick="gerarTodos()">🖨 Gerar PDFs por Unidade</button>
+      <button class="btn-gerar-outline" id="btn-gerar-unico" onclick="gerarUnificado()">📎 Baixar PDF Único (todas as guias)</button>
+      <div class="status-box" id="status-box">
+        <span id="status-msg"></span>
+      </div>
+      <div class="downloads-lista" id="downloads-lista"></div>
+    </div>
+  </div>
+
 </div><!-- /painel-guias -->
 
 
 <!-- ══════════════════════════════════════════════════════
-     PAINEL 3 — TERMOS DE REMESSA DE MATERIAIS
+     PAINEL 2 — TERMOS DE REMESSA DE MATERIAIS
 ══════════════════════════════════════════════════════ -->
 <div id="painel-termos" class="painel">
 
@@ -517,11 +488,10 @@ footer {
           <label>Data da Remessa</label>
           <input type="date" id="data-termo">
         </div>
-        <div class="form-group" style="flex:1.5; min-width:200px">
+        <div class="form-group dest-cell" style="flex:1.5; min-width:220px">
           <label>Unidade de Destino</label>
-          <select id="destino-termo">
-            <option value="">— selecione —</option>
-          </select>
+          <input type="text" id="destino-termo-input" placeholder="Buscar unidade (nome ou iniciais)..." autocomplete="off">
+          <div class="unidade-dropdown" id="destino-termo-dropdown"></div>
         </div>
       </div>
     </div>
@@ -566,31 +536,6 @@ footer {
   </div>
 
 </div><!-- /painel-termos -->
-
-<!-- ══════════════════════════════════════════════════════
-     PAINEL 3 — GERAR
-══════════════════════════════════════════════════════ -->
-<div id="painel-gerar" class="painel">
-
-  <div class="card">
-    <div class="card-header"><span>Gerar Documentos</span></div>
-    <div class="card-body">
-      <p style="font-size:0.9rem; color:var(--texto-leve); margin-bottom:16px; line-height:1.6">
-        Será gerado <strong>um arquivo PDF por unidade de destino</strong>,
-        formatado como folha A4 paisagem com as duas vias A5 lado a lado,
-        pronto para impressão. Ou, se preferir, baixe tudo em
-        <strong>um único PDF</strong>, com uma guia por unidade em cada página.
-      </p>
-      <button class="btn-gerar" id="btn-gerar" onclick="gerarTodos()">🖨 Gerar PDFs por Unidade</button>
-      <button class="btn-gerar-outline" id="btn-gerar-unico" onclick="gerarUnificado()">📎 Baixar PDF Único (todas as guias)</button>
-      <div class="status-box" id="status-box">
-        <span id="status-msg"></span>
-      </div>
-      <div class="downloads-lista" id="downloads-lista"></div>
-    </div>
-  </div>
-
-</div><!-- /painel-gerar -->
 
 <footer>
   Prefeitura Municipal de Cajamar — Secretaria de Saúde<br>
@@ -638,11 +583,21 @@ const ESPECIALIDADES = [
 /* ──────────────────────────────────────────────────────
    ESTADO (persistido em localStorage)
 ────────────────────────────────────────────────────── */
-let unidades = JSON.parse(localStorage.getItem('caj_unidades') || '[]');
+// Unidades "oficiais": vêm do cadastro real da Secretaria (mesma fonte que
+// alimenta o Receituário), via GET /api/unidades/minhas. Não existe mais
+// cadastro manual de unidades nesta página.
+let unidadesOficiais = [];
+
+// Unidades "avulsas": destinos digitados livremente pelo usuário quando a
+// unidade não está no cadastro oficial (ex.: um envio pontual para outro
+// município/serviço). Ficam restritas a este navegador (localStorage) e
+// nunca são enviadas para o servidor.
+let unidadesOutras = JSON.parse(localStorage.getItem('caj_unidades_outras') || '[]');
+
 let pacientes = [];
 
-function salvar() {
-  localStorage.setItem('caj_unidades', JSON.stringify(unidades));
+function salvarOutras() {
+  localStorage.setItem('caj_unidades_outras', JSON.stringify(unidadesOutras));
 }
 
 function salvarEmissor() {
@@ -666,77 +621,197 @@ function mudarAba(id, btn) {
 }
 
 /* ──────────────────────────────────────────────────────
-   UNIDADES
+   UNIDADES — busca por nome, com iniciais calculadas
+   automaticamente (ex.: "UBS Dra Izabel Gratieri" → IG),
+   fonte oficial (API) + destinos avulsos (cache local)
 ────────────────────────────────────────────────────── */
-function cadastrarUnidade() {
-  const sigla = document.getElementById('new-sigla').value.trim().toUpperCase();
-  const nome  = document.getElementById('new-nome').value.trim();
-  const aviso = document.getElementById('aviso-unidade');
 
-  aviso.style.display = 'none';
-
-  if (!sigla || !nome) {
-    mostrarAvisoUnidade('Preencha a sigla e o nome completo.');
-    return;
-  }
-  if (unidades.find(u => u.sigla === sigla)) {
-    mostrarAvisoUnidade(`A sigla "${sigla}" já está cadastrada.`);
-    return;
-  }
-
-  unidades.push({ sigla, nome });
-  salvar();
-  renderUnidades();
-  renderSelectsDestino();
-  renderSelectDestino();
-
-  document.getElementById('new-sigla').value = '';
-  document.getElementById('new-nome').value  = '';
-  document.getElementById('new-sigla').focus();
+// Remove acentos e caixa, para comparações de busca.
+function normalizar(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().trim();
 }
 
-function mostrarAvisoUnidade(msg) {
-  const el = document.getElementById('aviso-unidade');
-  el.textContent = '⚠ ' + msg;
-  el.style.display = 'flex';
+// Palavras ignoradas ao calcular as iniciais (tipo de unidade e títulos),
+// para que a abreviação reflita o nome próprio da unidade/profissional.
+const STOPWORDS_INICIAIS = new Set([
+  'UBS','UBSF','USF','ESF','PSF','NASF','CEO','CER','CAF','SAMU','CEM','CEMEI',
+  'UPA','AME','CAPS','CAPSI','CAPSAD','POLICLINICA','POLICLINICA','CENTRO',
+  'AMBULATORIO','MUNICIPAL','SAUDE','UNIDADE','DE','DA','DO','DAS','DOS','E',
+  'DR','DRA','DR.','DRA.','ENF','ENF.','ENFO','ENFA','SR','SRA','PROF','PROFA'
+]);
+
+function calcularIniciais(nome) {
+  const palavras = normalizar(nome)
+    .replace(/[^A-Z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  const relevantes = palavras.filter(p => !STOPWORDS_INICIAIS.has(p));
+  const base = relevantes.length ? relevantes : palavras;
+  return base.map(p => p[0]).join('');
 }
 
-function removerUnidade(sigla) {
-  if (!confirm(`Remover a unidade "${sigla}"? Os pacientes vinculados a ela perderão o destino.`)) return;
-  unidades = unidades.filter(u => u.sigla !== sigla);
-  pacientes.forEach(p => { if (p.destino === sigla) p.destino = ''; });
-  salvar();
-  renderUnidades();
-  renderPacientes();
-  renderSelectDestino();
+function slugificar(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'destino';
 }
 
-function renderUnidades() {
-  const grid  = document.getElementById('unidades-grid');
-  const empty = document.getElementById('empty-unidades');
-  const badge = document.getElementById('badge-unidades');
+// Lista combinada: unidades oficiais (cadastro da Secretaria) + avulsas
+// (só deste navegador), já com as iniciais calculadas.
+function getUnidadesTodas() {
+  const oficiais = unidadesOficiais.map(u => ({ code: u.code, nome: u.nome, avulsa: false }));
+  const outras   = unidadesOutras.map(u => ({ code: u.code, nome: u.nome, avulsa: true }));
+  return [...oficiais, ...outras].map(u => ({ ...u, iniciais: calcularIniciais(u.nome) }));
+}
 
-  badge.textContent = `${unidades.length} unidade(s)`;
+function getUnidadePorCodigo(code) {
+  if (!code) return null;
+  return getUnidadesTodas().find(u => u.code === code) || null;
+}
 
-  if (unidades.length === 0) {
-    grid.innerHTML = '';
-    empty.style.display = 'flex';
-    return;
+function rotuloUnidade(code) {
+  const u = getUnidadePorCodigo(code);
+  return u ? `${u.nome} (${u.iniciais})` : '';
+}
+
+// Cria (ou reaproveita) um destino avulso a partir do texto digitado.
+function adicionarUnidadeOutra(nomeDigitado) {
+  const nome = (nomeDigitado || '').trim();
+  if (!nome) return null;
+
+  const existente = getUnidadesTodas().find(u => normalizar(u.nome) === normalizar(nome));
+  if (existente) return existente;
+
+  let code = 'outro:' + slugificar(nome);
+  let n = 2;
+  while (getUnidadesTodas().some(u => u.code === code)) {
+    code = `outro:${slugificar(nome)}-${n}`;
+    n++;
   }
-  empty.style.display = 'none';
-  grid.innerHTML = unidades.map(u => `
-    <div class="unidade-card">
-      <button class="btn-del-unidade" onclick="removerUnidade('${esc(u.sigla)}')" title="Remover">×</button>
-      <div class="sigla-tag">${esc(u.sigla)}</div>
-      <div class="unidade-nome">${esc(u.nome)}</div>
+  const nova = { code, nome };
+  unidadesOutras.push(nova);
+  salvarOutras();
+  return nova;
+}
+
+function matchUnidade(u, qNorm) {
+  if (!qNorm) return true;
+  return normalizar(u.nome).includes(qNorm)
+      || normalizar(u.iniciais).includes(qNorm)
+      || normalizar(u.code).includes(qNorm);
+}
+
+function renderOpcoesUnidade(dropdownEl, query) {
+  const qNorm = normalizar(query);
+  const todas = getUnidadesTodas();
+  const filtradas = todas.filter(u => matchUnidade(u, qNorm)).slice(0, 30);
+
+  let html = filtradas.map(u => `
+    <div class="unidade-opcao" data-code="${esc(u.code)}">
+      <span class="uo-nome">${esc(u.nome)}</span>
+      <span class="uo-tag">${esc(u.iniciais)}${u.avulsa ? ' · avulso' : ''}</span>
     </div>`).join('');
+
+  const digitado = (query || '').trim();
+  const jaExiste = digitado && todas.some(u => normalizar(u.nome) === normalizar(digitado));
+  if (digitado && !jaExiste) {
+    html += `
+      <div class="unidade-opcao unidade-opcao-nova" data-novo="${esc(digitado)}">
+        ➕ Usar “${esc(digitado)}” como destino avulso
+        <small>Salvo apenas neste navegador — não entra no cadastro oficial.</small>
+      </div>`;
+  }
+  if (!html) {
+    html = `<div class="unidade-opcao-vazia">Nenhuma unidade encontrada. Digite um nome e escolha "usar como avulso".</div>`;
+  }
+  dropdownEl.innerHTML = html;
+}
+
+// Liga um input de busca + seu dropdown de opções ao modelo de dados,
+// via callback aoSelecionar(code). Reutilizado nas linhas de pacientes e
+// no destino do Termo de Remessa.
+function ligarComboUnidade(inputEl, dropdownEl, aoSelecionar) {
+  function abrir() {
+    renderOpcoesUnidade(dropdownEl, inputEl.value);
+    dropdownEl.classList.add('aberto');
+  }
+  function fechar() {
+    dropdownEl.classList.remove('aberto');
+  }
+  function selecionar(code) {
+    const u = getUnidadePorCodigo(code);
+    if (!u) return;
+    inputEl.value = `${u.nome} (${u.iniciais})`;
+    aoSelecionar(code);
+  }
+
+  inputEl.addEventListener('focus', abrir);
+  inputEl.addEventListener('input', abrir);
+  inputEl.addEventListener('blur', () => setTimeout(fechar, 150));
+
+  dropdownEl.addEventListener('mousedown', e => {
+    const opt = e.target.closest('.unidade-opcao');
+    if (!opt) return;
+    e.preventDefault();
+    if (opt.dataset.novo !== undefined) {
+      const nova = adicionarUnidadeOutra(opt.dataset.novo);
+      if (nova) selecionar(nova.code);
+    } else if (opt.dataset.code !== undefined) {
+      selecionar(opt.dataset.code);
+    }
+    fechar();
+  });
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const primeira = dropdownEl.querySelector('.unidade-opcao');
+      if (primeira) primeira.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    } else if (e.key === 'Escape') {
+      fechar();
+      inputEl.blur();
+    }
+  });
+}
+
+// Busca as unidades oficiais em GET /api/unidades/minhas (mesma fonte usada
+// pelo Receituário). Se falhar (rede/sessão), a página continua funcional
+// só com destinos avulsos.
+async function carregarUnidadesOficiais() {
+  const aviso = document.getElementById('aviso-unidades-api');
+  try {
+    const res = await fetch('/api/unidades/minhas', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('Falha ao carregar unidades.');
+    const data = await res.json();
+    unidadesOficiais = data.unidades || [];
+    aviso.style.display = 'none';
+  } catch (e) {
+    unidadesOficiais = [];
+    aviso.textContent = '⚠ Não foi possível carregar as unidades cadastradas pelo administrador. '
+      + 'Você ainda pode usar destinos avulsos.';
+    aviso.style.display = 'flex';
+  }
+
+  // Atualiza os rótulos exibidos e completa destinos vazios agora que a
+  // lista oficial chegou.
+  pacientes.forEach(p => {
+    if (!p.destino && getUnidadesTodas().length) p.destino = getUnidadesTodas()[0].code;
+  });
+  renderPacientes();
+  atualizarInputDestinoTermo();
 }
 
 /* ──────────────────────────────────────────────────────
    PACIENTES
 ────────────────────────────────────────────────────── */
 function addPaciente() {
-  pacientes.push({ nome: '', especialidade: 'PSICOLOGIA', destino: unidades[0]?.sigla || '' });
+  const todas = getUnidadesTodas();
+  pacientes.push({ nome: '', especialidade: 'PSICOLOGIA', destino: todas[0]?.code || '' });
   renderPacientes();
   const inputs = document.querySelectorAll('#pac-tbody .p-nome');
   if (inputs.length) inputs[inputs.length - 1].focus();
@@ -756,18 +831,16 @@ function renderPacientes() {
       `<option value="${e}" ${p.especialidade === e ? 'selected' : ''}>${e}</option>`
     ).join('');
 
-    const dOpts = unidades.length
-      ? unidades.map(u =>
-          `<option value="${esc(u.sigla)}" ${p.destino === u.sigla ? 'selected' : ''}>${esc(u.sigla)} — ${esc(u.nome)}</option>`
-        ).join('')
-      : `<option value="">— sem unidades cadastradas —</option>`;
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="num-cell">${i + 1}</td>
       <td><input type="text" class="p-nome" placeholder="Nome completo" value="${esc(p.nome)}"></td>
       <td><select class="p-esp">${eOpts}</select></td>
-      <td><select class="p-dest">${dOpts}</select></td>
+      <td class="dest-cell">
+        <input type="text" class="p-dest-input" placeholder="Buscar unidade (nome ou iniciais)..."
+               autocomplete="off" value="${esc(rotuloUnidade(p.destino))}">
+        <div class="unidade-dropdown"></div>
+      </td>
       <td><button class="btn-remove" onclick="removePaciente(${i})">×</button></td>`;
     tbody.appendChild(tr);
 
@@ -780,9 +853,10 @@ function renderPacientes() {
     tr.querySelector('.p-esp').addEventListener('change', e => {
       pacientes[i].especialidade = e.target.value;
     });
-    tr.querySelector('.p-dest').addEventListener('change', e => {
-      pacientes[i].destino = e.target.value;
-    });
+
+    const destInput = tr.querySelector('.p-dest-input');
+    const destDrop  = tr.querySelector('.unidade-dropdown');
+    ligarComboUnidade(destInput, destDrop, code => { pacientes[i].destino = code; });
   });
 
   updateBadgePac();
@@ -791,18 +865,6 @@ function renderPacientes() {
 function updateBadgePac() {
   const n = pacientes.filter(p => p.nome.trim()).length;
   document.getElementById('badge-pacientes').textContent = `${n} paciente(s)`;
-}
-
-/* Atualiza apenas os selects de destino sem re-renderizar a tabela inteira */
-function renderSelectsDestino() {
-  document.querySelectorAll('#pac-tbody .p-dest').forEach((sel, i) => {
-    const val = pacientes[i]?.destino || '';
-    sel.innerHTML = unidades.length
-      ? unidades.map(u =>
-          `<option value="${esc(u.sigla)}" ${val === u.sigla ? 'selected' : ''}>${esc(u.sigla)} — ${esc(u.nome)}</option>`
-        ).join('')
-      : `<option value="">— sem unidades cadastradas —</option>`;
-  });
 }
 
 /* ──────────────────────────────────────────────────────
@@ -872,16 +934,15 @@ function renderMateriais() {
   });
 }
 
-function renderSelectDestino() {
-  const sel = document.getElementById('destino-termo');
-  if (!sel) return;
-  const val = sel.value;
-  sel.innerHTML = unidades.length
-    ? '<option value="">— selecione —</option>' +
-      unidades.map(u =>
-        `<option value="${esc(u.sigla)}" ${val === u.sigla ? 'selected' : ''}>${esc(u.sigla)} — ${esc(u.nome)}</option>`
-      ).join('')
-    : '<option value="">— sem unidades cadastradas —</option>';
+// Código da unidade selecionada como destino do Termo de Remessa.
+let termoDestinoCode = '';
+
+// Atualiza o texto exibido no campo de busca do destino do Termo,
+// sem reconstruir o dropdown (usado ao chegar a lista oficial da API).
+function atualizarInputDestinoTermo() {
+  const input = document.getElementById('destino-termo-input');
+  if (!input) return;
+  input.value = rotuloUnidade(termoDestinoCode);
 }
 
 /* ──────────────────────────────────────────────────────
@@ -1080,7 +1141,7 @@ function inserirDuasVias(pdf, imgData) {
 ────────────────────────────────────────────────────── */
 async function gerarTermo() {
   const dataVal   = document.getElementById('data-termo').value;
-  const siglaDest = document.getElementById('destino-termo').value;
+  const siglaDest = termoDestinoCode;
   const validos   = materiais.filter(m => m.descricao.trim());
 
   const sbx = document.getElementById('status-box-termo');
@@ -1095,10 +1156,10 @@ async function gerarTermo() {
   if (!siglaDest) { err('Selecione a unidade de destino.'); return; }
   if (!validos.length) { err('Adicione ao menos um material com descrição.'); return; }
 
-  const unidade     = unidades.find(u => u.sigla === siglaDest);
+  const unidade      = getUnidadePorCodigo(siglaDest);
   const nomeCompleto = unidade ? unidade.nome : siglaDest;
-  const dataFmt     = fmtDate(dataVal);
-  const nomeArq     = `Termo_${siglaDest}_${(dataVal||'').replace(/-/g,'')}.pdf`;
+  const dataFmt      = fmtDate(dataVal);
+  const nomeArq      = `Termo_${unidade ? unidade.iniciais : slugificar(siglaDest)}_${(dataVal||'').replace(/-/g,'')}.pdf`;
 
   const btn = document.getElementById('btn-gerar-termo');
   btn.disabled = true;
@@ -1280,10 +1341,10 @@ async function gerarTodos() {
   btn.textContent = '⏳ Gerando PDFs...';
 
   for (const sigla of siglas) {
-    const unidade      = unidades.find(u => u.sigla === sigla);
+    const unidade      = getUnidadePorCodigo(sigla);
     const nomeCompleto = unidade ? unidade.nome : sigla;
     const pacs         = grupos[sigla];
-    const nomeArq      = `Guia_${sigla}_${(dataVal||'').replace(/-/g,'')}.pdf`;
+    const nomeArq      = `Guia_${unidade ? unidade.iniciais : slugificar(sigla)}_${(dataVal||'').replace(/-/g,'')}.pdf`;
 
     btn.textContent = `⏳ Gerando: ${nomeCompleto}…`;
 
@@ -1360,7 +1421,7 @@ async function gerarUnificado() {
 
     for (let idx = 0; idx < siglas.length; idx++) {
       const sigla        = siglas[idx];
-      const unidade      = unidades.find(u => u.sigla === sigla);
+      const unidade      = getUnidadePorCodigo(sigla);
       const nomeCompleto = unidade ? unidade.nome : sigla;
       const pacs         = grupos[sigla];
 
@@ -1415,15 +1476,22 @@ async function gerarUnificado() {
 document.getElementById('data-remessa').valueAsDate = new Date();
 const _emissorSalvo = localStorage.getItem('caj_emissor') || '';
 if (_emissorSalvo) document.getElementById('nome-emissor').value = _emissorSalvo;
-renderUnidades();
+
+ligarComboUnidade(
+  document.getElementById('destino-termo-input'),
+  document.getElementById('destino-termo-dropdown'),
+  code => { termoDestinoCode = code; }
+);
+
 addPaciente();
 addPaciente();
 addPaciente();
 addMaterial();
 addMaterial();
 addMaterial();
-renderSelectDestino();
 document.getElementById('data-termo').valueAsDate = new Date();
+
+carregarUnidadesOficiais();
 </script>
 
 </body>

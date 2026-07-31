@@ -779,13 +779,15 @@ function ligarComboUnidade(inputEl, dropdownEl, aoSelecionar) {
   });
 }
 
-// Busca as unidades oficiais em GET /api/unidades/minhas (mesma fonte usada
-// pelo Receituário). Se falhar (rede/sessão), a página continua funcional
-// só com destinos avulsos.
+// Busca todas as unidades ativas em GET /api/unidades/todas — endpoint
+// aberto a qualquer usuário autenticado, sem o filtro de atribuição
+// (user_unidades) que /api/unidades/minhas aplica para o Receituário.
+// Aqui o destino da guia/remessa pode ser qualquer unidade, não só a(s)
+// unidade(s) em que o usuário atua.
 async function carregarUnidadesOficiais() {
   const aviso = document.getElementById('aviso-unidades-api');
   try {
-    const res = await fetch('/api/unidades/minhas', { credentials: 'same-origin' });
+    const res = await fetch('/api/unidades/todas', { credentials: 'same-origin' });
     if (!res.ok) throw new Error('Falha ao carregar unidades.');
     const data = await res.json();
     unidadesOficiais = data.unidades || [];
@@ -797,11 +799,9 @@ async function carregarUnidadesOficiais() {
     aviso.style.display = 'flex';
   }
 
-  // Atualiza os rótulos exibidos e completa destinos vazios agora que a
-  // lista oficial chegou.
-  pacientes.forEach(p => {
-    if (!p.destino && getUnidadesTodas().length) p.destino = getUnidadesTodas()[0].code;
-  });
+  // Atualiza os rótulos exibidos (ex.: quando um destino já preenchido
+  // agora resolve nome/iniciais com a lista oficial recém-carregada).
+  // Campos vazios permanecem vazios — sem pré-seleção automática.
   renderPacientes();
   atualizarInputDestinoTermo();
 }
@@ -810,8 +810,7 @@ async function carregarUnidadesOficiais() {
    PACIENTES
 ────────────────────────────────────────────────────── */
 function addPaciente() {
-  const todas = getUnidadesTodas();
-  pacientes.push({ nome: '', especialidade: 'PSICOLOGIA', destino: todas[0]?.code || '' });
+  pacientes.push({ nome: '', especialidade: 'PSICOLOGIA', destino: '' });
   renderPacientes();
   const inputs = document.querySelectorAll('#pac-tbody .p-nome');
   if (inputs.length) inputs[inputs.length - 1].focus();

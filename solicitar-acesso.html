@@ -29,7 +29,13 @@
         </div>
         <div class="field">
           <label for="unidade">Unidade de lotação</label>
-          <input type="text" id="unidade" required placeholder="Ex.: UBS Jardim..., Secretaria, etc.">
+          <select id="unidade" required>
+            <option value="">Carregando unidades…</option>
+          </select>
+        </div>
+        <div class="field" id="unidadeOutraField" style="display:none">
+          <label for="unidadeOutra">Digite o nome da unidade</label>
+          <input type="text" id="unidadeOutra" placeholder="Ex.: UBS Jardim..., Secretaria, etc.">
         </div>
         <div class="field">
           <label for="password">Senha</label>
@@ -67,7 +73,41 @@
     const form = document.getElementById('signupForm');
     const msg = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
+    const unidadeSelect = document.getElementById('unidade');
+    const unidadeOutraField = document.getElementById('unidadeOutraField');
+    const unidadeOutraInput = document.getElementById('unidadeOutra');
     let turnstileScriptLoaded = false;
+
+    const OUTRA_VALUE = '__outra__';
+
+    // Carrega a mesma lista de unidades cadastrada pelo Super Administrador
+    // em Administração > Unidades, para evitar variações/erros de digitação.
+    // Se o carregamento falhar por algum motivo, cai de volta para o campo
+    // de texto livre — o formulário nunca fica impossível de preencher.
+    (async () => {
+      try {
+        const res = await fetch('/api/unidades/publicas');
+        if (!res.ok) throw new Error('Falha ao carregar unidades.');
+        const data = await res.json();
+        const nomes = data.unidades || [];
+
+        unidadeSelect.innerHTML = '<option value="">— selecione —</option>'
+          + nomes.map((n) => `<option value="${n.replace(/"/g, '&quot;')}">${n}</option>`).join('')
+          + `<option value="${OUTRA_VALUE}">Outra (não está na lista)</option>`;
+      } catch {
+        unidadeSelect.innerHTML = `<option value="${OUTRA_VALUE}" selected>Outra (digite abaixo)</option>`;
+        unidadeSelect.disabled = true;
+        unidadeOutraField.style.display = '';
+        unidadeOutraInput.required = true;
+      }
+    })();
+
+    unidadeSelect.addEventListener('change', () => {
+      const isOutra = unidadeSelect.value === OUTRA_VALUE;
+      unidadeOutraField.style.display = isOutra ? '' : 'none';
+      unidadeOutraInput.required = isOutra;
+      if (!isOutra) unidadeOutraInput.value = '';
+    });
 
     if (TURNSTILE_SITE_KEY) {
       document.getElementById('turnstileField').style.display = 'flex';
@@ -95,6 +135,15 @@
         return;
       }
 
+      const unidade = unidadeSelect.value === OUTRA_VALUE
+        ? unidadeOutraInput.value.trim()
+        : unidadeSelect.value;
+      if (!unidade) {
+        msg.className = 'form-msg is-error';
+        msg.textContent = 'Informe sua unidade de lotação.';
+        return;
+      }
+
       let turnstileToken = '';
       if (TURNSTILE_SITE_KEY) {
         turnstileToken = (turnstileScriptLoaded && window.turnstile) ? window.turnstile.getResponse() : '';
@@ -115,7 +164,7 @@
           body: JSON.stringify({
             name: document.getElementById('name').value,
             username: document.getElementById('username').value.trim().toLowerCase(),
-            unidade: document.getElementById('unidade').value,
+            unidade,
             password,
             turnstileToken,
           }),

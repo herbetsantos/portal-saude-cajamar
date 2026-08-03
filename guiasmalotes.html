@@ -978,11 +978,11 @@ function montarViaTermo(unidadeNome, dataFmt, itens) {
             style="height:112px;width:auto;display:block;margin:0 auto;"
             alt="Cajamar Prefeitura Saúde">`;
 
-  const brasaoEl = `<img src="${BRASAO_URL}"
-            style="position:absolute;top:50%;left:50%;
-                   transform:translate(-50%,-50%);
-                   width:36.25%;opacity:0.12;pointer-events:none;z-index:0;"
-            alt="">`;
+const brasaoEl = `
+  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+              pointer-events:none;z-index:0;overflow:hidden;">
+    <img src="${BRASAO_URL}" style="width:36.25%;opacity:0.12;" alt="">
+  </div>`;
 
   let linhas = '';
   itens.forEach((m, i) => {

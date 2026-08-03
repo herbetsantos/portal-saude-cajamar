@@ -33,10 +33,6 @@
             <option value="">Carregando unidades…</option>
           </select>
         </div>
-        <div class="field" id="unidadeOutraField" style="display:none">
-          <label for="unidadeOutra">Digite o nome da unidade</label>
-          <input type="text" id="unidadeOutra" placeholder="Ex.: UBS Jardim..., Secretaria, etc.">
-        </div>
         <div class="field">
           <label for="password">Senha</label>
           <input type="password" id="password" required minlength="8">
@@ -74,16 +70,12 @@
     const msg = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
     const unidadeSelect = document.getElementById('unidade');
-    const unidadeOutraField = document.getElementById('unidadeOutraField');
-    const unidadeOutraInput = document.getElementById('unidadeOutra');
     let turnstileScriptLoaded = false;
-
-    const OUTRA_VALUE = '__outra__';
 
     // Carrega a mesma lista de unidades cadastrada pelo Super Administrador
     // em Administração > Unidades, para evitar variações/erros de digitação.
-    // Se o carregamento falhar por algum motivo, cai de volta para o campo
-    // de texto livre — o formulário nunca fica impossível de preencher.
+    // Se o carregamento falhar, o select fica desabilitado com um aviso —
+    // o formulário não pode ser enviado sem uma unidade válida da lista.
     (async () => {
       try {
         const res = await fetch('/api/unidades/publicas');
@@ -92,22 +84,12 @@
         const nomes = data.unidades || [];
 
         unidadeSelect.innerHTML = '<option value="">— selecione —</option>'
-          + nomes.map((n) => `<option value="${n.replace(/"/g, '&quot;')}">${n}</option>`).join('')
-          + `<option value="${OUTRA_VALUE}">Outra (não está na lista)</option>`;
+          + nomes.map((n) => `<option value="${n.replace(/"/g, '&quot;')}">${n}</option>`).join('');
       } catch {
-        unidadeSelect.innerHTML = `<option value="${OUTRA_VALUE}" selected>Outra (digite abaixo)</option>`;
+        unidadeSelect.innerHTML = '<option value="">Não foi possível carregar — recarregue a página</option>';
         unidadeSelect.disabled = true;
-        unidadeOutraField.style.display = '';
-        unidadeOutraInput.required = true;
       }
     })();
-
-    unidadeSelect.addEventListener('change', () => {
-      const isOutra = unidadeSelect.value === OUTRA_VALUE;
-      unidadeOutraField.style.display = isOutra ? '' : 'none';
-      unidadeOutraInput.required = isOutra;
-      if (!isOutra) unidadeOutraInput.value = '';
-    });
 
     if (TURNSTILE_SITE_KEY) {
       document.getElementById('turnstileField').style.display = 'flex';
@@ -135,9 +117,7 @@
         return;
       }
 
-      const unidade = unidadeSelect.value === OUTRA_VALUE
-        ? unidadeOutraInput.value.trim()
-        : unidadeSelect.value;
+      const unidade = unidadeSelect.value;
       if (!unidade) {
         msg.className = 'form-msg is-error';
         msg.textContent = 'Informe sua unidade de lotação.';

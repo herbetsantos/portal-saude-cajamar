@@ -38,11 +38,35 @@
   </div>
 
   <script>
-    // Para onde ir depois de trocar a senha. Só aceitamos caminhos internos
-    // (começando com "/"), nunca URLs externas.
+    // Para onde ir depois de trocar a senha (ver mesma lógica em login.html).
+    const ALLOWED_NEXT_HOSTS = [
+      'SUBSTITUA-regulacao-vagas-cajamar.pages.dev',
+    ];
+    function safeNextUrl(raw) {
+      if (!raw) return '/portal.html';
+      if (raw.startsWith('/')) return raw;
+      try {
+        const u = new URL(raw);
+        if (u.protocol === 'https:' && ALLOWED_NEXT_HOSTS.includes(u.hostname)) return raw;
+      } catch { /* URL inválida, ignora */ }
+      return '/portal.html';
+    }
+    async function goToNext(url) {
+      if (url.startsWith('/')) { window.location.href = url; return; }
+      try {
+        const res = await fetch('/api/handoff', { method: 'POST', credentials: 'same-origin' });
+        if (res.ok) {
+          const { token } = await res.json();
+          const sep = url.includes('?') ? '&' : '?';
+          window.location.href = `${url}${sep}handoff=${encodeURIComponent(token)}`;
+          return;
+        }
+      } catch { /* cai no fallback abaixo */ }
+      window.location.href = url;
+    }
     const params = new URLSearchParams(window.location.search);
     const nextParam = params.get('next');
-    const nextUrl = nextParam && nextParam.startsWith('/') ? nextParam : '/portal.html';
+    const nextUrl = safeNextUrl(nextParam);
 
     const form = document.getElementById('changeForm');
     const msg = document.getElementById('formMsg');
@@ -59,7 +83,7 @@
         }
         const data = await res.json();
         if (!data.user || !data.user.mustChangePassword) {
-          window.location.href = nextUrl;
+          goToNext(nextUrl);
         }
       } catch {
         window.location.href = '/login.html';
@@ -94,7 +118,7 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Não foi possível trocar a senha.');
-        window.location.href = nextUrl;
+        goToNext(nextUrl);
       } catch (err) {
         msg.className = 'form-msg is-error';
         msg.textContent = err.message;

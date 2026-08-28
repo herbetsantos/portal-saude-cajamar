@@ -63,12 +63,22 @@ export function getCookie(request, name) {
 
 const SESSION_TTL_SECONDS = 8 * 60 * 60; // 8 horas
 
-export function sessionCookieHeader(token, maxAgeSeconds = SESSION_TTL_SECONDS) {
-  return `session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}`;
+// COOKIE_DOMAIN é opcional (definido em wrangler.toml [vars] ou nas
+// variáveis de ambiente do Cloudflare Pages). Quando definido (ex.:
+// ".saude.cajamar.sp.gov.br"), o cookie de sessão passa a valer em todos os
+// subdomínios daquele domínio — é isso que permite o mesmo login funcionar
+// no Portal e num projeto separado, como o de Regulação de Vagas.
+// Quando NÃO definido (comportamento atual, sem alteração), o cookie fica
+// restrito ao host exato — mantém compatibilidade total com quem não usa
+// subdomínio nenhum.
+export function sessionCookieHeader(token, env, maxAgeSeconds = SESSION_TTL_SECONDS) {
+  const domainAttr = env?.COOKIE_DOMAIN ? `; Domain=${env.COOKIE_DOMAIN}` : '';
+  return `session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${domainAttr}`;
 }
 
-export function clearSessionCookieHeader() {
-  return `session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearSessionCookieHeader(env) {
+  const domainAttr = env?.COOKIE_DOMAIN ? `; Domain=${env.COOKIE_DOMAIN}` : '';
+  return `session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0${domainAttr}`;
 }
 
 export async function createSession(env, userId) {

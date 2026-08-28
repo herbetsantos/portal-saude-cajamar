@@ -6,3 +6,13 @@ pages_build_output_dir = "."
 binding = "DB"
 database_name = "portal-saude-db"
 database_id = "d20e8935-68c2-47cb-8a88-69162fb9feaa"
+
+# Opcional: só defina isso se for publicar o projeto de Regulação de Vagas
+# (ou outro projeto Pages separado) num subdomínio do mesmo domínio deste
+# portal, e quiser que o mesmo login/cookie funcione nos dois.
+# Ex.: se o portal está em "saude.cajamar.sp.gov.br" e a Regulação em
+# "regulacao.saude.cajamar.sp.gov.br", use ".saude.cajamar.sp.gov.br"
+# (com o ponto na frente). Deixe comentado/ausente para manter o
+# comportamento atual (cookie restrito ao host exato).
+# [vars]
+# COOKIE_DOMAIN = ".saude.cajamar.sp.gov.br"

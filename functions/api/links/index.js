@@ -10,8 +10,8 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const category = url.searchParams.get('category');
 
-  const baseQuery = 'SELECT id, category, title, url, description, sort_order, feature_key FROM links';
-  const fallbackQuery = 'SELECT id, category, title, url, description, sort_order FROM links';
+  const baseQuery = 'SELECT id, category, title, url, description, sort_order, feature_key, open_mode FROM links';
+  const fallbackQuery = 'SELECT id, category, title, url, description, sort_order, open_mode FROM links';
   const suffix = category
     ? ' WHERE category = ? ORDER BY sort_order ASC, id ASC'
     : ' ORDER BY category ASC, sort_order ASC, id ASC';
@@ -49,16 +49,17 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const { category, title, url, description, sort_order, feature_key } = body;
+  const { category, title, url, description, sort_order, feature_key, open_mode } = body;
   if (!category || !CATEGORIES.includes(category)) return json({ error: 'Categoria inválida.' }, 400);
   if (!title || !title.trim()) return json({ error: 'Informe um título.' }, 400);
   if (!url || !url.trim()) return json({ error: 'Informe uma URL.' }, 400);
   if (feature_key && !isFeatureKey(feature_key)) return json({ error: 'Funcionalidade inválida.' }, 400);
+  if (open_mode && !['_blank', '_self'].includes(open_mode)) return json({ error: 'Modo de abertura inválido.' }, 400);
 
   const result = await env.DB.prepare(
-    'INSERT INTO links (category, title, url, description, sort_order, feature_key) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO links (category, title, url, description, sort_order, feature_key, open_mode) VALUES (?, ?, ?, ?, ?, ?, ?)'
   )
-    .bind(category, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, feature_key || null)
+    .bind(category, title.trim(), url.trim(), description ? description.trim() : null, sort_order || 0, feature_key || null, open_mode || '_blank')
     .run();
 
   await logAudit(env, user, 'create_link', 'link', result.meta.last_row_id, { category, title: title.trim(), url: url.trim() });

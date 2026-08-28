@@ -171,6 +171,24 @@ function setupFerramentasDropdown() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 }
 
+async function goToExternalWithHandoff(url, openMode) {
+  const abrirNovaAba = openMode !== '_self';
+  try {
+    const res = await fetch('/api/handoff', { method: 'POST', credentials: 'same-origin' });
+    if (res.ok) {
+      const { token } = await res.json();
+      const sep = url.includes('?') ? '&' : '?';
+      const finalUrl = `${url}${sep}handoff=${encodeURIComponent(token)}`;
+      if (abrirNovaAba) window.open(finalUrl, '_blank', 'noopener');
+      else window.location.href = finalUrl;
+      return;
+    }
+  } catch { /* cai no fallback abaixo */ }
+  // fallback: vai sem o código (site vai pedir login de novo)
+  if (abrirNovaAba) window.open(url, '_blank', 'noopener');
+  else window.location.href = url;
+}
+
 async function loadFerramentasMenu(perms) {
   const menu = document.getElementById('ferramentasMenu');
   if (!menu) return;
@@ -184,11 +202,25 @@ async function loadFerramentasMenu(perms) {
       links = links.filter((l) => !l.feature_key || perms[l.feature_key] !== false);
     }
     menu.innerHTML = links.length
-      ? links.map((l) => `
-          <a class="submenu__link" href="${escapeAttr(l.url)}">
+      ? links.map((l) => {
+          const isExternal = /^https?:\/\//i.test(l.url) && new URL(l.url, window.location.href).hostname !== window.location.hostname;
+          const novaAba = l.open_mode !== '_self';
+          const targetAttr = isExternal ? '' : ` target="${novaAba ? '_blank' : '_self'}" rel="noopener"`;
+          return `
+          <a class="submenu__link" href="${escapeAttr(l.url)}"${targetAttr}${isExternal ? ` data-external-tool="1" data-open-mode="${l.open_mode === '_self' ? '_self' : '_blank'}"` : ''}>
             <span class="cross">✚</span>${escapeHtml(l.title)}
-          </a>`).join('')
+          </a>`;
+        }).join('')
       : `<div class="submenu__link" style="color:var(--muted)">Nenhuma ferramenta cadastrada</div>`;
+
+    // Links para outro projeto (*.pages.dev diferente, ex.: Regulação de
+    // Vagas) precisam do código de repasse — ver goToExternalWithHandoff.
+    menu.querySelectorAll('a[data-external-tool]').forEach((a) => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        goToExternalWithHandoff(a.getAttribute('href'), a.dataset.openMode);
+      });
+    });
   } catch {
     menu.innerHTML = `<div class="submenu__link" style="color:var(--muted)">Não foi possível carregar</div>`;
   }

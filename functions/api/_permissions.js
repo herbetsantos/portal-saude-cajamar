@@ -15,6 +15,7 @@ export const FEATURES = [
   { key: 'documentos', label: 'Documentos Úteis' },
   { key: 'manuais', label: 'Manuais de Uso' },
   { key: 'relatorios', label: 'Relatórios' },
+  { key: 'regulacao_vagas', label: 'Regulação de Vagas' },
   { key: 'administracao', label: 'Administração' },
 ];
 

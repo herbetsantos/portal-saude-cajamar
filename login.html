@@ -183,11 +183,51 @@
     const msg = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
 
-    // Para onde ir depois do login (ex.: /receituario/?unidade=polvilho).
-    // Só aceitamos caminhos internos (começando com "/"), nunca URLs externas.
+    // Para onde ir depois do login (ex.: /receituario/?unidade=polvilho, ou
+    // uma URL completa de um subdomínio confiável, ex.:
+    // https://regulacao.saude.cajamar.sp.gov.br/).
+    // Por segurança (evitar open-redirect), só aceitamos:
+    //  (a) caminhos internos começando com "/", ou
+    //  (b) URLs https cujo host esteja na allowlist abaixo.
+    // Edite ALLOWED_NEXT_HOSTS ao publicar projetos separados que
+    // compartilham este login (ex.: Regulação de Vagas). Troque pelo
+    // domínio *.pages.dev real do projeto depois do deploy.
+    const ALLOWED_NEXT_HOSTS = [
+      'SUBSTITUA-regulacao-vagas-cajamar.pages.dev',
+    ];
+    function safeNextUrl(raw) {
+      if (!raw) return '/portal.html';
+      if (raw.startsWith('/')) return raw;
+      try {
+        const u = new URL(raw);
+        if (u.protocol === 'https:' && ALLOWED_NEXT_HOSTS.includes(u.hostname)) return raw;
+      } catch { /* URL inválida, ignora */ }
+      return '/portal.html';
+    }
+
+    // Se o destino final é um domínio externo confiável (outro projeto
+    // Pages, mesmo banco), gera um código de repasse de uso único e anexa
+    // na URL antes de navegar — é assim que a sessão "atravessa" pro outro
+    // domínio, já que cookie de sessão não é enviado entre *.pages.dev
+    // diferentes. Se o destino é interno (começa com "/"), navega direto,
+    // sem nenhuma chamada extra.
+    async function goToNext(url) {
+      if (url.startsWith('/')) { window.location.href = url; return; }
+      try {
+        const res = await fetch('/api/handoff', { method: 'POST', credentials: 'same-origin' });
+        if (res.ok) {
+          const { token } = await res.json();
+          const sep = url.includes('?') ? '&' : '?';
+          window.location.href = `${url}${sep}handoff=${encodeURIComponent(token)}`;
+          return;
+        }
+      } catch { /* cai no fallback abaixo */ }
+      window.location.href = url; // fallback: vai sem o código (vai pedir login de novo lá)
+    }
+
     const params = new URLSearchParams(window.location.search);
     const nextParam = params.get('next');
-    const nextUrl = nextParam && nextParam.startsWith('/') ? nextParam : '/portal.html';
+    const nextUrl = safeNextUrl(nextParam);
 
     // Se já estiver logado, vai direto pro destino.
     fetch('/api/me', { credentials: 'same-origin' }).then(async (r) => {
@@ -196,7 +236,7 @@
       if (data.user && data.user.mustChangePassword) {
         window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
       } else {
-        window.location.href = nextUrl;
+        goToNext(nextUrl);
       }
     });
 
@@ -222,7 +262,7 @@
         if (data.user && data.user.mustChangePassword) {
           window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
         } else {
-          window.location.href = nextUrl;
+          goToNext(nextUrl);
         }
       } catch (err) {
         msg.className = 'form-msg is-error';

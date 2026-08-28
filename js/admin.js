@@ -319,20 +319,21 @@ async function loadLinksTable(category) {
 
   wrap.innerHTML = `
     <table class="data-table">
-      <thead><tr><th>Título</th><th>URL</th>${category === 'ferramenta' ? '<th>Funcionalidade</th>' : ''}<th>Ordem</th><th></th></tr></thead>
+      <thead><tr><th>Título</th><th>URL</th>${category === 'ferramenta' ? '<th>Funcionalidade</th>' : ''}<th>Abre em</th><th>Ordem</th><th></th></tr></thead>
       <tbody>
         ${items.length ? items.map((it) => `
           <tr>
             <td>${escapeHtml(it.title)}</td>
             <td class="muted-url" title="${escapeAttr(it.url)}">${escapeHtml(it.url)}</td>
             ${category === 'ferramenta' ? `<td>${escapeHtml((FERRAMENTA_FEATURE_OPTIONS.find((f) => f.key === it.feature_key) || {}).label || '—')}</td>` : ''}
+            <td>${it.open_mode === '_self' ? 'Mesma aba' : 'Nova aba'}</td>
             <td>${it.sort_order}</td>
             <td class="actions-cell"><div class="row-actions">
               <button class="btn btn--outline btn--sm" data-edit="${it.id}">Editar</button>
               <button class="btn btn--danger btn--sm" data-delete="${it.id}">Excluir</button>
             </div></td>
           </tr>
-        `).join('') : `<tr><td colspan="${category === 'ferramenta' ? 5 : 4}" style="color:var(--muted)">Nenhum item cadastrado.</td></tr>`}
+        `).join('') : `<tr><td colspan="${category === 'ferramenta' ? 6 : 5}" style="color:var(--muted)">Nenhum item cadastrado.</td></tr>`}
       </tbody>
     </table>
     <form class="inline-form" data-add-form="${category}">
@@ -352,6 +353,13 @@ async function loadLinksTable(category) {
           ${FERRAMENTA_FEATURE_OPTIONS.map((f) => `<option value="${f.key}">${escapeHtml(f.label)}</option>`).join('')}
         </select>
       </div>` : ''}
+      <div class="field">
+        <label>Abre em</label>
+        <select data-field="open_mode">
+          <option value="_blank">Nova aba</option>
+          <option value="_self">Mesma aba</option>
+        </select>
+      </div>
       <div class="field">
         <label>Ordem de exibição</label>
         <input type="number" data-field="sort_order" value="${items.length + 1}">
@@ -388,6 +396,7 @@ async function loadLinksTable(category) {
       sort_order: Number(addForm.querySelector('[data-field="sort_order"]').value) || 0,
       description: addForm.querySelector('[data-field="description"]').value.trim(),
       feature_key: featureField ? (featureField.value || null) : null,
+      open_mode: addForm.querySelector('[data-field="open_mode"]').value,
     };
     try {
       const res = await fetch('/api/links', {
@@ -428,6 +437,13 @@ function openEditLinkModal(item, category) {
       </select>
     </div>` : ''}
     <div class="field">
+      <label>Abre em</label>
+      <select id="editOpenMode">
+        <option value="_blank" ${item.open_mode !== '_self' ? 'selected' : ''}>Nova aba</option>
+        <option value="_self" ${item.open_mode === '_self' ? 'selected' : ''}>Mesma aba</option>
+      </select>
+    </div>
+    <div class="field">
       <label>Ordem de exibição</label>
       <input type="number" id="editOrder" value="${item.sort_order}">
     </div>
@@ -456,6 +472,7 @@ function openEditLinkModal(item, category) {
           sort_order: Number(document.getElementById('editOrder').value) || 0,
           description: document.getElementById('editDesc').value.trim(),
           feature_key: featureField ? (featureField.value || null) : null,
+          open_mode: document.getElementById('editOpenMode').value,
         }),
       });
       const data = await res.json();

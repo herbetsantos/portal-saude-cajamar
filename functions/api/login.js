@@ -73,6 +73,6 @@ export async function onRequestPost({ request, env }) {
       },
     },
     200,
-    { 'Set-Cookie': sessionCookieHeader(token) }
+    { 'Set-Cookie': sessionCookieHeader(token, env) }
   );
 }

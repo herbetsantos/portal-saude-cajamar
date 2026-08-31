@@ -173,3 +173,13 @@ deploy em produção.
 
 ### Aparência compartilhada com eMulti
 A versão 2.3 adiciona Claro, Escuro, Alto contraste e Automático. A preferência é armazenada em `users.theme` e compartilhada com o módulo eMulti. Execute `migration_theme_v3.sql` uma única vez no `portal-saude-db`.
+
+## Integração eMulti v2.6 — permissão individual
+
+A partir da v2.6, `regulacao_vagas` é uma permissão **individual**, independente do papel (`user`, `admin_unidade`, `admin`) no Portal. Ela indica apenas se o usuário pode abrir o eMulti. As responsabilidades internas — Cadastrante, Regulador, Executor e Administrador — são configuradas no próprio eMulti.
+
+Execute no `portal-saude-db`:
+
+```bash
+wrangler d1 execute portal-saude-db --remote --file=./migration_regulacao_acessos_v2_6.sql
+```

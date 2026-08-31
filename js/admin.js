@@ -1163,15 +1163,16 @@ async function openUserConfigModal(u) {
     // ---- Funcionalidades ----
     const featuresHtml = `
       <div class="panel-section__title" style="font-size:15px">Funcionalidades habilitadas</div>
-      <p class="muted" style="margin:2px 0 8px">Marque o que ${escapeHtml(u.name)} pode usar. Itens em cinza não estão liberados para o papel "${roleLabel(u.role)}" — ajuste isso em Administração &gt; Perfis de acesso.</p>
+      <p class="muted" style="margin:2px 0 8px">Marque o que ${escapeHtml(u.name)} pode usar. Itens em cinza não estão liberados para o papel "${roleLabel(u.role)}". <strong>Regulação de Vagas</strong> é uma permissão individual; as responsabilidades internas (Cadastrante, Regulador, Executor) são configuradas no próprio eMulti.</p>
       <div class="checkbox-list" id="userCfgFeatures">
         ${permData.features.map((f) => {
           const dentroDoTeto = !!permData.ceiling[f.key];
+          const gerenciadoExterno = !!f.managedExternally;
           const marcado = dentroDoTeto && (permData.overrides.hasOwnProperty(f.key) ? permData.overrides[f.key] : true);
           return `
             <label style="display:flex;align-items:center;gap:8px;padding:4px 0;${dentroDoTeto ? '' : 'color:var(--muted)'}">
-              <input type="checkbox" value="${f.key}" ${marcado ? 'checked' : ''} ${dentroDoTeto ? '' : 'disabled'} style="width:auto">
-              ${escapeHtml(f.label)}${dentroDoTeto ? '' : ' <span class="muted" style="font-size:12px">(fora do perfil)</span>'}
+              <input type="checkbox" value="${f.key}" ${marcado ? 'checked' : ''} ${(dentroDoTeto && !gerenciadoExterno) ? '' : 'disabled'} style="width:auto">
+              ${escapeHtml(f.label)}${gerenciadoExterno ? ' <span class="muted" style="font-size:12px">(gerenciado no eMulti)</span>' : (dentroDoTeto ? '' : ' <span class="muted" style="font-size:12px">(fora do perfil)</span>')}
             </label>
           `;
         }).join('')}

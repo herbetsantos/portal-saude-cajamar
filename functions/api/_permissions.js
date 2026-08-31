@@ -2,8 +2,9 @@
 //
 // - role_permissions define o "teto" (máximo permitido) por papel — editável
 //   em Administração > Perfis de acesso (só Super Admin edita).
-// - user_permissions guarda exceções por profissional DENTRO desse teto —
-//   nunca pode ultrapassar o que o papel do usuário permite.
+// - user_permissions guarda exceções por profissional DENTRO desse teto.
+// - EXCEÇÃO: regulacao_vagas é individual e independe do papel do Portal;
+//   suas responsabilidades internas são configuradas no próprio eMulti.
 // - super_admin sempre tem acesso a tudo e não passa por nenhuma das duas
 //   tabelas (evita a possibilidade de alguém se autobloquear por engano).
 
@@ -15,7 +16,7 @@ export const FEATURES = [
   { key: 'documentos', label: 'Documentos Úteis' },
   { key: 'manuais', label: 'Manuais de Uso' },
   { key: 'relatorios', label: 'Relatórios' },
-  { key: 'regulacao_vagas', label: 'Regulação de Vagas' },
+  { key: 'regulacao_vagas', label: 'Regulação de Vagas', managedExternally: true },
   { key: 'administracao', label: 'Administração' },
 ];
 
@@ -49,6 +50,10 @@ export async function getRoleCeiling(env, role) {
     ).bind(role).all();
     const ceiling = allFalse();
     results.forEach((r) => { if (isFeatureKey(r.feature_key)) ceiling[r.feature_key] = !!r.enabled; });
+    // Regulação de Vagas é individual: o papel do Portal não limita essa
+    // funcionalidade. Mantemos teto=true apenas para que a tela de permissões
+    // individuais possa habilitá-la; o valor efetivo depende de override.
+    ceiling.regulacao_vagas = true;
     return ceiling;
   } catch {
     return allTrue();
@@ -68,11 +73,17 @@ export async function getUserPermissions(env, user) {
     results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
     const effective = {};
     FEATURE_KEYS.forEach((k) => {
+      if (k === 'regulacao_vagas') {
+        // Exceção proposital: acesso ao eMulti é individual e independente do
+        // role do Portal. Sem override explícito, fica desabilitado.
+        effective[k] = overrides.hasOwnProperty(k) ? overrides[k] : false;
+        return;
+      }
       const wanted = overrides.hasOwnProperty(k) ? overrides[k] : ceiling[k];
-      effective[k] = ceiling[k] && wanted; // nunca passa do teto do papel
+      effective[k] = ceiling[k] && wanted;
     });
     return effective;
   } catch {
-    return ceiling;
+    return { ...ceiling, regulacao_vagas: false };
   }
 }

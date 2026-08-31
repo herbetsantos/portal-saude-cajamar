@@ -4,6 +4,7 @@ import { FEATURES, isFeatureKey } from './_permissions.js';
 // super_admin não entra nessa lista: sempre tem tudo liberado e não é editável.
 const ROLES = ['user', 'admin_unidade', 'admin'];
 const ROLE_SET = new Set(ROLES);
+const ROLE_FEATURES = FEATURES.filter((f) => f.key !== 'regulacao_vagas');
 
 // GET: qualquer papel do painel admin pode ver o teto vigente (é usado para
 // desenhar o card de Configurações do profissional). Só o Super Admin edita.
@@ -21,7 +22,7 @@ export async function onRequestGet({ request, env }) {
   const map = {};
   ROLES.forEach((r) => {
     map[r] = {};
-    FEATURES.forEach((f) => { map[r][f.key] = false; });
+    ROLE_FEATURES.forEach((f) => { map[r][f.key] = false; });
   });
   results.forEach((row) => {
     if (ROLE_SET.has(row.role) && isFeatureKey(row.feature_key)) {
@@ -29,7 +30,7 @@ export async function onRequestGet({ request, env }) {
     }
   });
 
-  return json({ features: FEATURES, roles: ROLES, permissions: map });
+  return json({ features: ROLE_FEATURES, roles: ROLES, permissions: map });
 }
 
 // PUT: substitui o teto de todos os papéis de uma vez.
@@ -50,7 +51,7 @@ export async function onRequestPut({ request, env }) {
   try {
     for (const role of ROLES) {
       const featMap = permissions[role] || {};
-      for (const f of FEATURES) {
+      for (const f of ROLE_FEATURES) {
         const enabled = featMap[f.key] ? 1 : 0;
         await env.DB.prepare(
           `INSERT INTO role_permissions (role, feature_key, enabled) VALUES (?, ?, ?)

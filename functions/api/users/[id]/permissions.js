@@ -30,6 +30,9 @@ export async function onRequestGet({ request, env, params }) {
   }
   const overrides = {};
   results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
+  // Regulação é individual e, sem configuração explícita, deve aparecer
+  // desmarcada (não herda o papel do Portal).
+  if (!Object.prototype.hasOwnProperty.call(overrides, 'regulacao_vagas')) overrides.regulacao_vagas = false;
 
   return json({ role: target.role, features: FEATURES, ceiling, overrides });
 }
@@ -69,8 +72,9 @@ export async function onRequestPut({ request, env, params }) {
   const wanted = body.permissions || {};
 
   try {
-    await env.DB.prepare('DELETE FROM user_permissions WHERE user_id = ?').bind(id).run();
+    await env.DB.prepare("DELETE FROM user_permissions WHERE user_id = ? AND feature_key <> 'regulacao_vagas'").bind(id).run();
     for (const f of FEATURES) {
+      if (f.key === 'regulacao_vagas') continue; // gerenciado pelo eMulti
       if (!ceiling[f.key]) continue; // nunca grava exceção acima do teto do papel
       const enabled = wanted[f.key] ? 1 : 0;
       await env.DB.prepare(

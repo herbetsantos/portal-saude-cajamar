@@ -8,7 +8,7 @@ tela de login.
 
 ## Por que não é só um cookie compartilhado
 
-`apoioapscajamar.pages.dev` e `regulacao-vagas-cajamar.pages.dev` são dois
+`apoioapscajamar.pages.dev` e `emulti.pages.dev` são dois
 domínios `*.pages.dev` **diferentes** — não são subdomínio um do outro, e
 `pages.dev` está na Public Suffix List, então o navegador nunca envia
 cookie de um pro outro automaticamente. Por isso o mecanismo aqui é um
@@ -56,9 +56,7 @@ Depois de conferir:
 1. **Copie os arquivos** para o repositório do portal.
 
 2. **Ajuste a allowlist** em `login.html` e `trocar-senha-obrigatoria.html`
-   — troque `'SUBSTITUA-regulacao-vagas-cajamar.pages.dev'` pelo domínio
-   `*.pages.dev` real do projeto separado, depois que ele for criado no
-   Cloudflare (o nome exato só existe depois do primeiro deploy de lá).
+   — a allowlist deve conter `'emulti.pages.dev'`, que é o domínio atual do módulo eMulti.
 
 3. **Rode a migração** no banco existente:
    ```
@@ -92,7 +90,7 @@ Depois de conferir:
    `ferramenta`) para o domínio real do projeto separado, depois que ele
    existir:
    ```sql
-   UPDATE links SET url = 'https://regulacao-vagas-cajamar.pages.dev/'
+   UPDATE links SET url = 'https://emulti.pages.dev/'
    WHERE title = 'Regulação de Vagas';
    ```
 

@@ -72,8 +72,8 @@ CREATE TABLE IF NOT EXISTS regulacao_equipe_unidades (
 );
 CREATE INDEX IF NOT EXISTS idx_regulacao_equipe_unidades_unidade ON regulacao_equipe_unidades(unidade_code);
 
--- 2d) Profissionais de cada equipe. Um profissional pode estar em mais de
---     uma equipe. Preencher via SQL — ver INSTALL.md.
+-- 2d) Profissionais de cada equipe. Cada profissional pode pertencer a
+--     somente UMA equipe. Preencher via interface ou SQL — ver INSTALL.md.
 CREATE TABLE IF NOT EXISTS regulacao_equipe_profissionais (
   equipe_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
@@ -92,11 +92,11 @@ INSERT OR IGNORE INTO role_permissions (role, feature_key, enabled) VALUES
 
 -- 4) Item de menu (Ferramentas) apontando para o projeto separado de
 --    Regulação de Vagas. Troque a URL abaixo pela URL real do seu deploy
---    (ex.: https://regulacao-vagas-cajamar.pages.dev/).
+--    (ex.: https://emulti.pages.dev/).
 --    INSERT condicional (WHERE NOT EXISTS) — seguro rodar esta migração
 --    mais de uma vez sem duplicar o item de menu.
 INSERT INTO links (category, title, url, sort_order, feature_key)
-SELECT 'ferramenta', 'Regulação de Vagas', 'https://SUBSTITUA-regulacao-vagas-cajamar.pages.dev/', 4, 'regulacao_vagas'
+SELECT 'ferramenta', 'Regulação de Vagas', 'https://emulti.pages.dev/', 4, 'regulacao_vagas'
 WHERE NOT EXISTS (SELECT 1 FROM links WHERE title = 'Regulação de Vagas');
 
 -- 5) Códigos de repasse de sessão (uso único, curta duração — 60s). Como o
@@ -106,7 +106,7 @@ WHERE NOT EXISTS (SELECT 1 FROM links WHERE title = 'Regulação de Vagas');
 --    carrega só a identidade do usuário de um site pro outro — nunca a
 --    senha, nem o próprio token de sessão. Ver functions/api/handoff.js
 --    (aqui, no portal) e functions/_middleware.js (no projeto
---    regulacao-vagas-cajamar, onde o código é consumido).
+--    emulti.pages.dev, onde o código é consumido).
 CREATE TABLE IF NOT EXISTS handoff_tokens (
   token TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
@@ -114,4 +114,17 @@ CREATE TABLE IF NOT EXISTS handoff_tokens (
   expires_at TEXT NOT NULL,
   used INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 6) Regra eMulti: cada profissional pertence a somente UMA equipe.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_regulacao_equipe_prof_user_unica
+  ON regulacao_equipe_profissionais(user_id);
+
+-- 7) Ícones dos links úteis do eMulti. Os links continuam vindo da tabela
+--    links do Portal; esta tabela guarda apenas a apresentação no módulo.
+CREATE TABLE IF NOT EXISTS regulacao_link_icons (
+  link_id INTEGER PRIMARY KEY,
+  icon_key TEXT NOT NULL DEFAULT 'links',
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
 );

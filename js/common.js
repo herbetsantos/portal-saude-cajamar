@@ -37,8 +37,24 @@ const TOPBAR_HTML = `
       </nav>
     </div>
     <div class="topbar__right">
-      <div class="user-chip" id="userChip"></div>
-      <button class="btn btn--ghost-light btn--sm" id="logoutBtn" type="button">Sair</button>
+      <div class="portal-account-wrap">
+        <button class="portal-account-button" id="portalAccountButton" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="user-chip__avatar" id="portalAccountAvatar">?</span>
+          <span class="portal-account-button__name" id="portalAccountName">Usuário</span>
+          <span class="portal-account-button__chevron">⌄</span>
+        </button>
+        <div class="portal-account-menu" id="portalAccountMenu" hidden>
+          <div class="theme-menu-label">Aparência</div>
+          <div class="theme-choice-list">
+            <button type="button" data-theme-choice="auto"><span>Automático</span><span class="theme-choice__check" data-theme-check></span></button>
+            <button type="button" data-theme-choice="light"><span>Claro</span><span class="theme-choice__check" data-theme-check></span></button>
+            <button type="button" data-theme-choice="dark"><span>Escuro</span><span class="theme-choice__check" data-theme-check></span></button>
+            <button type="button" data-theme-choice="contrast"><span>Alto contraste</span><span class="theme-choice__check" data-theme-check></span></button>
+          </div>
+          <div class="account-menu__divider"></div>
+          <button type="button" id="logoutBtn"><span aria-hidden="true">↪</span><span>Sair</span></button>
+        </div>
+      </div>
     </div>
   </div>
 </header>`;
@@ -95,12 +111,15 @@ function initials(name) {
 }
 
 function renderTopbarUser(user) {
+  const safeName = user.name || user.username || 'Usuário';
   const chipHtml = `
-    <span class="user-chip__avatar">${initials(user.name)}</span>
-    <span>${user.name}</span>
+    <span class="user-chip__avatar">${initials(safeName)}</span>
+    <span>${escapeHtml(safeName)}</span>
   `;
-  const chip = document.getElementById('userChip');
-  if (chip) chip.innerHTML = chipHtml;
+  const accountName = document.getElementById('portalAccountName');
+  const accountAvatar = document.getElementById('portalAccountAvatar');
+  if (accountName) accountName.textContent = safeName;
+  if (accountAvatar) accountAvatar.textContent = initials(safeName);
   const chipMobile = document.getElementById('userChipMobile');
   if (chipMobile) chipMobile.innerHTML = chipHtml;
   const perms = user.permissions || {};
@@ -114,6 +133,26 @@ function renderTopbarUser(user) {
   if (docLink) docLink.style.display = perms.documentos === false ? 'none' : '';
   const manLink = document.querySelector('[data-nav="manuais"]');
   if (manLink) manLink.style.display = perms.manuais === false ? 'none' : '';
+}
+
+function setupPortalAccountMenu() {
+  const button = document.getElementById('portalAccountButton');
+  const menu = document.getElementById('portalAccountMenu');
+  if (!button || !menu) return;
+
+  const close = () => {
+    menu.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+  };
+  button.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+    button.setAttribute('aria-expanded', String(!menu.hidden));
+  });
+  menu.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  if (window.SaudeTheme) window.SaudeTheme.bindControls(menu);
 }
 
 function setupLogout() {
@@ -251,8 +290,13 @@ function escapeAttr(str) { return escapeHtml(str); }
 async function initPortalChrome(activeKey) {
   setFavicon('/assets/favicon.png');
   renderTopbar(activeKey);
+  setupPortalAccountMenu();
   const user = await requireLogin();
   if (!user) return null;
+  if (window.SaudeTheme) {
+    window.SaudeTheme.syncFromUser(user);
+    window.SaudeTheme.bindControls(document.getElementById('portalAccountMenu'));
+  }
   renderTopbarUser(user);
   setupLogout();
   setupMobileNav();

@@ -62,6 +62,14 @@ export async function onRequestPost({ request, env }) {
 
   const token = await createSession(env, user.id);
 
+  let theme = 'light';
+  try {
+    const themeRow = await env.DB.prepare('SELECT theme FROM users WHERE id = ?').bind(user.id).first();
+    if (['auto', 'light', 'dark', 'contrast'].includes(themeRow?.theme)) theme = themeRow.theme;
+  } catch {
+    // Compatibilidade enquanto migration_theme_v3.sql ainda não foi executada.
+  }
+
   return json(
     {
       ok: true,
@@ -69,6 +77,7 @@ export async function onRequestPost({ request, env }) {
         username: user.username,
         name: user.name,
         role: user.role,
+        theme,
         mustChangePassword: !!user.must_change_password,
       },
     },

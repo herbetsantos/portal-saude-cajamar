@@ -98,3 +98,13 @@ Depois de conferir:
 
 Depois disso, siga o `INSTALL.md` do pacote `regulacao-vagas-cajamar/` para
 subir o projeto separado.
+
+## Aparência compartilhada — v2.3
+
+Para habilitar a preferência de aparência compartilhada com o eMulti, execute uma única vez:
+
+```bash
+wrangler d1 execute portal-saude-db --remote --file=./migration_theme_v3.sql
+```
+
+Opções gravadas em `users.theme`: `light`, `dark`, `contrast` e `auto`. O padrão é `light` para preservar o modo visual atual.

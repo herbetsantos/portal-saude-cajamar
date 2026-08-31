@@ -170,3 +170,6 @@ deploy em produção.
 - **Cor do menu superior:** variável `--primary` em `css/style.css` (já definida como `#203b8f`).
 - **Logotipo:** substitua `assets/logo.png` (mantenha fundo branco).
 - **Textos das páginas:** editar diretamente os arquivos `.html` correspondentes.
+
+### Aparência compartilhada com eMulti
+A versão 2.3 adiciona Claro, Escuro, Alto contraste e Automático. A preferência é armazenada em `users.theme` e compartilhada com o módulo eMulti. Execute `migration_theme_v3.sql` uma única vez no `portal-saude-db`.

@@ -25,6 +25,8 @@ role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin','super_admin','
   -- Unidade de lotação (texto livre, informativo). NÃO tem relação com o
   -- campo de unidade usado no Receituário (ver user_unidades).
   unidade TEXT,
+  -- Preferência de aparência compartilhada entre Portal e eMulti.
+  theme TEXT NOT NULL DEFAULT 'light' CHECK (theme IN ('auto','light','dark','contrast')),
   created_at TEXT DEFAULT (datetime('now'))
 );
 

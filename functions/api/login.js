@@ -62,7 +62,7 @@ export async function onRequestPost({ request, env }) {
 
   const token = await createSession(env, user.id);
 
-  let theme = 'light';
+  let theme = null;
   try {
     const themeRow = await env.DB.prepare('SELECT theme FROM users WHERE id = ?').bind(user.id).first();
     if (['auto', 'light', 'dark', 'contrast'].includes(themeRow?.theme)) theme = themeRow.theme;

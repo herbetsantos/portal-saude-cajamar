@@ -183,3 +183,7 @@ Execute no `portal-saude-db`:
 ```bash
 wrangler d1 execute portal-saude-db --remote --file=./migration_regulacao_acessos_v2_6.sql
 ```
+
+## Aparência v2.7
+
+O seletor de aparência foi movido para um controle compacto no cabeçalho, à esquerda do usuário. O botão principal alterna Claro/Escuro e a seta mantém acesso a Automático e Alto contraste. Não há nova migração de banco para esta versão.

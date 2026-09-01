@@ -3,6 +3,39 @@
 // Topbar única, compartilhada por todas as páginas. Antes esse HTML estava
 // duplicado em cada arquivo .html; agora existe só aqui. Cada página só
 // precisa ter <div id="app-topbar"></div> no lugar do <header> antigo.
+const PORTAL_THEME_ICONS = {
+  auto: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z"/></svg>',
+  light: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/></svg>',
+  dark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.4A8.4 8.4 0 0 1 9.6 3.5 8.6 8.6 0 1 0 20.5 14.4Z"/></svg>',
+  contrast: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z"/></svg>',
+};
+
+function portalThemeIconSvg(theme) {
+  return PORTAL_THEME_ICONS[theme] || PORTAL_THEME_ICONS.light;
+}
+
+function portalThemeControlHtml() {
+  return `
+    <div class="theme-control" id="themeControl">
+      <button class="theme-control__toggle" id="themeQuickToggle" type="button" aria-label="Alternar entre modo claro e escuro" title="Alternar claro/escuro">
+        <span class="theme-control__icon" id="themeCurrentIcon" aria-hidden="true">${portalThemeIconSvg('light')}</span>
+        <span class="theme-control__label" id="themeCurrentLabel">Claro</span>
+      </button>
+      <button class="theme-control__menu-button" id="themeMenuButton" type="button" aria-label="Escolher aparência" aria-haspopup="true" aria-expanded="false" title="Escolher aparência">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
+      </button>
+      <div class="theme-control__menu" id="themeMenu" hidden>
+        <div class="theme-menu-label">Aparência</div>
+        <div class="theme-choice-list">
+          <button type="button" data-theme-choice="auto"><span class="theme-choice__icon">${portalThemeIconSvg('auto')}</span><span>Automático</span><span class="theme-choice__check" data-theme-check></span></button>
+          <button type="button" data-theme-choice="light"><span class="theme-choice__icon">${portalThemeIconSvg('light')}</span><span>Claro</span><span class="theme-choice__check" data-theme-check></span></button>
+          <button type="button" data-theme-choice="dark"><span class="theme-choice__icon">${portalThemeIconSvg('dark')}</span><span>Escuro</span><span class="theme-choice__check" data-theme-check></span></button>
+          <button type="button" data-theme-choice="contrast"><span class="theme-choice__icon">${portalThemeIconSvg('contrast')}</span><span>Alto contraste</span><span class="theme-choice__check" data-theme-check></span></button>
+        </div>
+      </div>
+    </div>`;
+}
+
 const TOPBAR_HTML = `
 <header class="topbar">
   <div class="topbar__inner">
@@ -37,6 +70,7 @@ const TOPBAR_HTML = `
       </nav>
     </div>
     <div class="topbar__right">
+      ${portalThemeControlHtml()}
       <div class="portal-account-wrap">
         <button class="portal-account-button" id="portalAccountButton" type="button" aria-haspopup="true" aria-expanded="false">
           <span class="user-chip__avatar" id="portalAccountAvatar">?</span>
@@ -44,14 +78,6 @@ const TOPBAR_HTML = `
           <span class="portal-account-button__chevron">⌄</span>
         </button>
         <div class="portal-account-menu" id="portalAccountMenu" hidden>
-          <div class="theme-menu-label">Aparência</div>
-          <div class="theme-choice-list">
-            <button type="button" data-theme-choice="auto"><span>Automático</span><span class="theme-choice__check" data-theme-check></span></button>
-            <button type="button" data-theme-choice="light"><span>Claro</span><span class="theme-choice__check" data-theme-check></span></button>
-            <button type="button" data-theme-choice="dark"><span>Escuro</span><span class="theme-choice__check" data-theme-check></span></button>
-            <button type="button" data-theme-choice="contrast"><span>Alto contraste</span><span class="theme-choice__check" data-theme-check></span></button>
-          </div>
-          <div class="account-menu__divider"></div>
           <button type="button" id="logoutBtn"><span aria-hidden="true">↪</span><span>Sair</span></button>
         </div>
       </div>
@@ -135,6 +161,62 @@ function renderTopbarUser(user) {
   if (manLink) manLink.style.display = perms.manuais === false ? 'none' : '';
 }
 
+function updatePortalThemeControl() {
+  if (!window.SaudeTheme) return;
+  const pref = window.SaudeTheme.getPreference();
+  const icon = document.getElementById('themeCurrentIcon');
+  const label = document.getElementById('themeCurrentLabel');
+  const quick = document.getElementById('themeQuickToggle');
+  if (icon) icon.innerHTML = portalThemeIconSvg(pref);
+  if (label) label.textContent = window.SaudeTheme.getLabel(pref);
+  if (quick) quick.title = `${window.SaudeTheme.getLabel(pref)} — clique para alternar Claro/Escuro`;
+}
+
+function setupPortalThemeSwitcher() {
+  const quick = document.getElementById('themeQuickToggle');
+  const menuButton = document.getElementById('themeMenuButton');
+  const menu = document.getElementById('themeMenu');
+  if (!quick || !menuButton || !menu || !window.SaudeTheme) return;
+
+  const close = () => {
+    menu.hidden = true;
+    menuButton.setAttribute('aria-expanded', 'false');
+  };
+  const closeAccount = () => {
+    const accountMenu = document.getElementById('portalAccountMenu');
+    const accountButton = document.getElementById('portalAccountButton');
+    if (accountMenu) accountMenu.hidden = true;
+    if (accountButton) accountButton.setAttribute('aria-expanded', 'false');
+  };
+
+  quick.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+    closeAccount();
+    window.SaudeTheme.toggleLightDark();
+    updatePortalThemeControl();
+  });
+
+  menuButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeAccount();
+    menu.hidden = !menu.hidden;
+    menuButton.setAttribute('aria-expanded', String(!menu.hidden));
+  });
+
+  menu.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (event.target.closest('[data-theme-choice]')) setTimeout(close, 0);
+  });
+  document.addEventListener('click', close);
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+  window.addEventListener('saude-theme-change', updatePortalThemeControl);
+  window.SaudeTheme.bindControls(menu);
+  updatePortalThemeControl();
+}
+
 function setupPortalAccountMenu() {
   const button = document.getElementById('portalAccountButton');
   const menu = document.getElementById('portalAccountMenu');
@@ -146,13 +228,16 @@ function setupPortalAccountMenu() {
   };
   button.addEventListener('click', (e) => {
     e.stopPropagation();
+    const themeMenu = document.getElementById('themeMenu');
+    const themeButton = document.getElementById('themeMenuButton');
+    if (themeMenu) themeMenu.hidden = true;
+    if (themeButton) themeButton.setAttribute('aria-expanded', 'false');
     menu.hidden = !menu.hidden;
     button.setAttribute('aria-expanded', String(!menu.hidden));
   });
   menu.addEventListener('click', (e) => e.stopPropagation());
   document.addEventListener('click', close);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  if (window.SaudeTheme) window.SaudeTheme.bindControls(menu);
 }
 
 function setupLogout() {
@@ -290,12 +375,14 @@ function escapeAttr(str) { return escapeHtml(str); }
 async function initPortalChrome(activeKey) {
   setFavicon('/assets/favicon.png');
   renderTopbar(activeKey);
+  setupPortalThemeSwitcher();
   setupPortalAccountMenu();
   const user = await requireLogin();
   if (!user) return null;
   if (window.SaudeTheme) {
     window.SaudeTheme.syncFromUser(user);
-    window.SaudeTheme.bindControls(document.getElementById('portalAccountMenu'));
+    window.SaudeTheme.bindControls(document.getElementById('themeMenu'));
+    updatePortalThemeControl();
   }
   renderTopbarUser(user);
   setupLogout();

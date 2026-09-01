@@ -34,6 +34,7 @@
       <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
       <button class="admin-tab" data-tab="relatorios">Relatórios</button>
       <button class="admin-tab" data-tab="unidades">Unidades</button>
+      <button class="admin-tab" data-tab="ouvidoria">Ouvidoria IA</button>
       <button class="admin-tab" data-tab="perfis">Perfis de acesso</button>
       <button class="admin-tab" data-tab="usuarios">Usuários</button>
       <button class="admin-tab" data-tab="auditoria">Auditoria</button>
@@ -222,6 +223,119 @@
           </div>
           <div id="addUnidadeMsg" class="form-msg" style="grid-column:1/-1"></div>
         </form>
+      </section>
+
+
+      <!-- Ouvidoria IA -->
+      <section class="panel-section" data-panel="ouvidoria">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Ouvidoria — distribuição por IA</div>
+            <div class="panel-section__desc">Fonte central de profissionais, regras especiais e fallback consumida pela extensão OuvidorSUS. Nenhum conteúdo de manifestação é armazenado aqui.</div>
+          </div>
+        </div>
+
+        <div class="panel-section__head" style="margin-top:10px">
+          <div>
+            <div class="panel-section__title" style="font-size:17px">Profissionais</div>
+            <div class="panel-section__desc">O código técnico é estável no Portal. Para atribuir no OuvidorSUS, a extensão resolve o nome exato habilitado e usa o identificador exigido pelo próprio sistema apenas durante a operação.</div>
+          </div>
+        </div>
+        <div id="ouvidoriaProfissionaisWrap"><div class="skeleton-loading">Carregando…</div></div>
+        <form id="addOuvidoriaProfissionalForm" class="inline-form">
+          <div class="field">
+            <label for="ovProfCodigo">Código técnico</label>
+            <input type="text" id="ovProfCodigo" required pattern="[a-z0-9_-]{2,40}" placeholder="ex.: beatriz">
+          </div>
+          <div class="field">
+            <label for="ovProfNome">Nome no Portal</label>
+            <input type="text" id="ovProfNome" required placeholder="Ex.: Beatriz">
+          </div>
+          <div class="field field--full">
+            <label for="ovProfNomeSus">Nome exato no OuvidorSUS</label>
+            <input type="text" id="ovProfNomeSus" placeholder="Preencher exatamente como aparece na lista de usuários habilitados">
+          </div>
+          <div class="field">
+            <label for="ovProfEmail">E-mail</label>
+            <input type="email" id="ovProfEmail" placeholder="profissional@cajamar.sp.gov.br">
+          </div>
+          <div class="field">
+            <label for="ovProfObs">Observação / função</label>
+            <input type="text" id="ovProfObs" placeholder="Ex.: apoio técnico de Odontologia">
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Adicionar profissional</button>
+          </div>
+          <div id="addOuvidoriaProfissionalMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+
+        <div class="panel-section__head" style="margin-top:34px">
+          <div>
+            <div class="panel-section__title" style="font-size:17px">Regras de distribuição</div>
+            <div class="panel-section__desc">A menor prioridade numérica é avaliada primeiro. Ex.: Odontologia técnica (10) antes da regra geral de Odontologia (20).</div>
+          </div>
+        </div>
+        <div id="ouvidoriaRegrasWrap"><div class="skeleton-loading">Carregando…</div></div>
+        <form id="addOuvidoriaRegraForm" class="inline-form">
+          <div class="field">
+            <label for="ovRegraTitulo">Título</label>
+            <input type="text" id="ovRegraTitulo" required placeholder="Ex.: Odontologia — demanda técnica">
+          </div>
+          <div class="field">
+            <label for="ovRegraDivisao">Divisão</label>
+            <input type="text" id="ovRegraDivisao" required placeholder="Ex.: Odontologia">
+          </div>
+          <div class="field">
+            <label for="ovRegraSubtipo">Subtipo</label>
+            <input type="text" id="ovRegraSubtipo" value="geral" required placeholder="geral / tecnica / ...">
+          </div>
+          <div class="field">
+            <label for="ovRegraPrioridade">Prioridade</label>
+            <input type="number" id="ovRegraPrioridade" min="1" max="9999" value="100" required>
+          </div>
+          <div class="field">
+            <label for="ovRegraProfissional">Responsável</label>
+            <select id="ovRegraProfissional" required><option value="">— selecione —</option></select>
+          </div>
+          <div class="field field--full">
+            <label for="ovRegraDescricao">Critério / orientação</label>
+            <textarea id="ovRegraDescricao" rows="2" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;resize:vertical" placeholder="Descreva quando esta regra deve ser aplicada"></textarea>
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Adicionar regra</button>
+          </div>
+          <div id="addOuvidoriaRegraMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+
+        <div class="panel-section__head" style="margin-top:34px">
+          <div>
+            <div class="panel-section__title" style="font-size:17px">Dúvida / fallback</div>
+            <div class="panel-section__desc">Quando a classificação não atingir o nível mínimo de confiança, a extensão usa esta ordem de apoio em vez de adivinhar um responsável.</div>
+          </div>
+        </div>
+        <form id="ouvidoriaConfigForm" class="inline-form">
+          <div class="field">
+            <label for="ovConfidence">Confiança mínima para distribuição automática (%)</label>
+            <input type="number" id="ovConfidence" min="0" max="100" step="1" value="80" required>
+          </div>
+          <div class="field">
+            <label for="ovFallback1">1º fallback</label>
+            <select id="ovFallback1"><option value="">— nenhum —</option></select>
+          </div>
+          <div class="field">
+            <label for="ovFallback2">2º fallback</label>
+            <select id="ovFallback2"><option value="">— nenhum —</option></select>
+          </div>
+          <div class="inline-form__actions">
+            <button type="submit" class="btn btn--accent btn--sm">Salvar configuração</button>
+          </div>
+          <div id="ouvidoriaConfigMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
+
+        <div class="empty-state" style="margin-top:28px;text-align:left">
+          <strong>Integração com a extensão</strong><br>
+          A extensão consumirá <code>/api/ouvidoria/extension-config</code> em modo somente leitura. Configure no Cloudflare Pages a variável secreta <code>OUVIDORIA_EXTENSION_TOKEN</code>. O banco do Portal guarda apenas esta configuração administrativa — não guarda manifestações.
+        </div>
       </section>
 
       <!-- Perfis de acesso -->

@@ -187,3 +187,10 @@ wrangler d1 execute portal-saude-db --remote --file=./migration_regulacao_acesso
 ## Aparência v2.7
 
 O seletor de aparência foi movido para um controle compacto no cabeçalho, à esquerda do usuário. O botão principal alterna Claro/Escuro e a seta mantém acesso a Automático e Alto contraste. Não há nova migração de banco para esta versão.
+
+
+## Integração Ouvidoria IA v2.8
+
+A v2.8 adiciona **Administração → Ouvidoria IA** para centralizar profissionais, regras especiais e fallback consumidos pela extensão do OuvidorSUS. Execute `migration_ouvidoria_v2_8.sql` no D1 do Portal. Para a extensão ler a configuração, defina o secret `OUVIDORIA_EXTENSION_TOKEN` no Cloudflare Pages. Consulte `INTEGRACAO_OUVIDORIA.md`.
+
+O D1 do Portal guarda apenas configuração administrativa. Manifestações continuam fora do banco e permanecem temporárias na extensão.

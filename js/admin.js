@@ -1538,6 +1538,266 @@ async function loadAuditLogTable() {
   ` : '<p class="muted">Nenhum registro de auditoria ainda.</p>';
 }
 
+
+// ---------- Ouvidoria IA ----------
+
+let OUVIDORIA_PROFISSIONAIS = [];
+let OUVIDORIA_REGRAS = [];
+
+function ouvidoriaProfOptions(selected = '', includeInactive = false) {
+  const items = OUVIDORIA_PROFISSIONAIS.filter((p) => includeInactive || p.ativo);
+  return '<option value="">— selecione —</option>' + items.map((p) =>
+    `<option value="${escapeAttr(p.codigo)}" ${p.codigo === selected ? 'selected' : ''}>${escapeHtml(p.nome)}${p.ativo ? '' : ' (inativo)'}</option>`
+  ).join('');
+}
+
+function refreshOuvidoriaSelects() {
+  const ruleSel = document.getElementById('ovRegraProfissional');
+  if (ruleSel) ruleSel.innerHTML = ouvidoriaProfOptions('');
+  for (const id of ['ovFallback1', 'ovFallback2']) {
+    const el = document.getElementById(id);
+    if (el) {
+      const current = el.value;
+      el.innerHTML = '<option value="">— nenhum —</option>' + OUVIDORIA_PROFISSIONAIS.filter((p) => p.ativo).map((p) =>
+        `<option value="${escapeAttr(p.codigo)}" ${p.codigo === current ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`
+      ).join('');
+    }
+  }
+}
+
+async function loadOuvidoriaProfissionais() {
+  const wrap = document.getElementById('ouvidoriaProfissionaisWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+  try {
+    const res = await fetch('/api/ouvidoria/profissionais', { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Falha ao carregar profissionais.');
+    OUVIDORIA_PROFISSIONAIS = data.profissionais || [];
+    wrap.innerHTML = OUVIDORIA_PROFISSIONAIS.length ? `
+      <table class="data-table">
+        <thead><tr><th>Profissional</th><th>Nome no OuvidorSUS</th><th>E-mail</th><th>Situação</th><th></th></tr></thead>
+        <tbody>${OUVIDORIA_PROFISSIONAIS.map((p) => `
+          <tr>
+            <td><strong>${escapeHtml(p.nome)}</strong><br><span class="muted" style="font-size:12px">${escapeHtml(p.codigo)}</span></td>
+            <td>${p.nome_ouvidorsus ? escapeHtml(p.nome_ouvidorsus) : '<span class="muted">Não vinculado</span>'}</td>
+            <td>${p.email ? escapeHtml(p.email) : '<span class="muted">Não informado</span>'}</td>
+            <td><span class="status-badge ${p.ativo ? 'status-badge--active' : ''}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
+            <td style="white-space:nowrap">
+              <button class="btn btn--outline btn--sm" data-ov-edit-prof="${escapeAttr(p.codigo)}">Editar</button>
+              <button class="btn btn--outline btn--sm" data-ov-delete-prof="${escapeAttr(p.codigo)}">Excluir</button>
+            </td>
+          </tr>`).join('')}</tbody>
+      </table>` : '<p class="muted">Nenhum profissional cadastrado.</p>';
+
+    wrap.querySelectorAll('[data-ov-edit-prof]').forEach((btn) => btn.addEventListener('click', () => {
+      const p = OUVIDORIA_PROFISSIONAIS.find((x) => x.codigo === btn.dataset.ovEditProf);
+      if (p) openOuvidoriaProfModal(p);
+    }));
+    wrap.querySelectorAll('[data-ov-delete-prof]').forEach((btn) => btn.addEventListener('click', () => deleteOuvidoriaProfissional(btn.dataset.ovDeleteProf)));
+    refreshOuvidoriaSelects();
+  } catch (err) {
+    wrap.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function openOuvidoriaProfModal(p) {
+  openModal(`
+    <div class="modal__head"><div><div class="modal__title">Editar profissional</div><div class="modal__subtitle">Código técnico: ${escapeHtml(p.codigo)}</div></div><button class="modal__close" onclick="closeModal()">×</button></div>
+    <form id="editOvProfForm">
+      <div class="field"><label>Nome no Portal</label><input id="editOvProfNome" value="${escapeAttr(p.nome || '')}" required></div>
+      <div class="field"><label>Nome exato no OuvidorSUS</label><input id="editOvProfNomeSus" value="${escapeAttr(p.nome_ouvidorsus || '')}"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="editOvProfEmail" value="${escapeAttr(p.email || '')}"></div>
+      <div class="field"><label>Observação / função</label><textarea id="editOvProfObs" rows="3">${escapeHtml(p.observacao || '')}</textarea></div>
+      <label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input type="checkbox" id="editOvProfAtivo" ${p.ativo ? 'checked' : ''}> Profissional ativo</label>
+      <div id="editOvProfMsg" class="form-msg"></div>
+      <div class="modal__actions"><button type="button" class="btn btn--outline" onclick="closeModal()">Cancelar</button><button type="submit" class="btn btn--accent">Salvar</button></div>
+    </form>`, true);
+  document.getElementById('editOvProfForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('editOvProfMsg');
+    try {
+      const res = await fetch(`/api/ouvidoria/profissionais/${encodeURIComponent(p.codigo)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({
+          nome: document.getElementById('editOvProfNome').value.trim(),
+          nomeOuvidorSus: document.getElementById('editOvProfNomeSus').value.trim(),
+          email: document.getElementById('editOvProfEmail').value.trim(),
+          observacao: document.getElementById('editOvProfObs').value.trim(),
+          ativo: document.getElementById('editOvProfAtivo').checked,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Não foi possível salvar.');
+      closeModal();
+      await Promise.all([loadOuvidoriaProfissionais(), loadOuvidoriaRegras(), loadOuvidoriaConfiguracao()]);
+    } catch (err) { msg.textContent = err.message; msg.className = 'form-msg is-error'; }
+  });
+}
+
+async function deleteOuvidoriaProfissional(codigo) {
+  const p = OUVIDORIA_PROFISSIONAIS.find((x) => x.codigo === codigo);
+  if (!p || !confirm(`Excluir definitivamente ${p.nome}? Se estiver vinculado a regra/fallback, a exclusão será bloqueada.`)) return;
+  const res = await fetch(`/api/ouvidoria/profissionais/${encodeURIComponent(codigo)}`, { method: 'DELETE', credentials: 'same-origin' });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || 'Não foi possível excluir.'); return; }
+  await loadOuvidoriaProfissionais();
+}
+
+async function loadOuvidoriaRegras() {
+  const wrap = document.getElementById('ouvidoriaRegrasWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
+  try {
+    const res = await fetch('/api/ouvidoria/regras', { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Falha ao carregar regras.');
+    OUVIDORIA_REGRAS = data.regras || [];
+    wrap.innerHTML = OUVIDORIA_REGRAS.length ? `
+      <table class="data-table">
+        <thead><tr><th>Prioridade</th><th>Regra</th><th>Divisão / subtipo</th><th>Responsável</th><th>Situação</th><th></th></tr></thead>
+        <tbody>${OUVIDORIA_REGRAS.map((r) => `
+          <tr>
+            <td>${r.prioridade}</td>
+            <td><strong>${escapeHtml(r.titulo)}</strong>${r.descricao ? `<br><span class="muted" style="font-size:12px">${escapeHtml(r.descricao)}</span>` : ''}</td>
+            <td>${escapeHtml(r.divisao)}<br><span class="muted" style="font-size:12px">${escapeHtml(r.subtipo || 'geral')}</span></td>
+            <td>${escapeHtml(r.profissional_nome || r.profissional_codigo)}</td>
+            <td>${r.ativo ? 'Ativa' : 'Inativa'}</td>
+            <td style="white-space:nowrap"><button class="btn btn--outline btn--sm" data-ov-edit-rule="${r.id}">Editar</button> <button class="btn btn--outline btn--sm" data-ov-delete-rule="${r.id}">Excluir</button></td>
+          </tr>`).join('')}</tbody>
+      </table>` : '<p class="muted">Nenhuma regra cadastrada.</p>';
+    wrap.querySelectorAll('[data-ov-edit-rule]').forEach((btn) => btn.addEventListener('click', () => {
+      const r = OUVIDORIA_REGRAS.find((x) => String(x.id) === btn.dataset.ovEditRule);
+      if (r) openOuvidoriaRegraModal(r);
+    }));
+    wrap.querySelectorAll('[data-ov-delete-rule]').forEach((btn) => btn.addEventListener('click', () => deleteOuvidoriaRegra(Number(btn.dataset.ovDeleteRule))));
+  } catch (err) { wrap.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`; }
+}
+
+function openOuvidoriaRegraModal(r) {
+  openModal(`
+    <div class="modal__head"><div><div class="modal__title">Editar regra</div></div><button class="modal__close" onclick="closeModal()">×</button></div>
+    <form id="editOvRuleForm">
+      <div class="field"><label>Título</label><input id="editOvRuleTitulo" value="${escapeAttr(r.titulo || '')}" required></div>
+      <div class="field"><label>Divisão</label><input id="editOvRuleDivisao" value="${escapeAttr(r.divisao || '')}" required></div>
+      <div class="field"><label>Subtipo</label><input id="editOvRuleSubtipo" value="${escapeAttr(r.subtipo || 'geral')}" required></div>
+      <div class="field"><label>Prioridade</label><input type="number" min="1" max="9999" id="editOvRulePrioridade" value="${r.prioridade}" required></div>
+      <div class="field"><label>Responsável</label><select id="editOvRuleProf">${ouvidoriaProfOptions(r.profissional_codigo, true)}</select></div>
+      <div class="field"><label>Critério / orientação</label><textarea id="editOvRuleDescricao" rows="3">${escapeHtml(r.descricao || '')}</textarea></div>
+      <label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input type="checkbox" id="editOvRuleAtiva" ${r.ativo ? 'checked' : ''}> Regra ativa</label>
+      <div id="editOvRuleMsg" class="form-msg"></div>
+      <div class="modal__actions"><button type="button" class="btn btn--outline" onclick="closeModal()">Cancelar</button><button type="submit" class="btn btn--accent">Salvar</button></div>
+    </form>`, true);
+  document.getElementById('editOvRuleForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('editOvRuleMsg');
+    try {
+      const res = await fetch(`/api/ouvidoria/regras/${r.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({
+          titulo: document.getElementById('editOvRuleTitulo').value.trim(),
+          divisao: document.getElementById('editOvRuleDivisao').value.trim(),
+          subtipo: document.getElementById('editOvRuleSubtipo').value.trim(),
+          prioridade: Number(document.getElementById('editOvRulePrioridade').value),
+          profissionalCodigo: document.getElementById('editOvRuleProf').value,
+          descricao: document.getElementById('editOvRuleDescricao').value.trim(),
+          ativo: document.getElementById('editOvRuleAtiva').checked,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Não foi possível salvar.');
+      closeModal(); await loadOuvidoriaRegras();
+    } catch (err) { msg.textContent = err.message; msg.className = 'form-msg is-error'; }
+  });
+}
+
+async function deleteOuvidoriaRegra(id) {
+  const r = OUVIDORIA_REGRAS.find((x) => x.id === id);
+  if (!r || !confirm(`Excluir a regra “${r.titulo}”?`)) return;
+  const res = await fetch(`/api/ouvidoria/regras/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || 'Não foi possível excluir.'); return; }
+  await loadOuvidoriaRegras();
+}
+
+async function loadOuvidoriaConfiguracao() {
+  try {
+    const res = await fetch('/api/ouvidoria/configuracao', { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Falha ao carregar configuração.');
+    refreshOuvidoriaSelects();
+    document.getElementById('ovConfidence').value = Math.round(Number(data.config?.confidence_threshold ?? 0.8) * 100);
+    const fallbacks = data.fallbacks || [];
+    document.getElementById('ovFallback1').value = fallbacks.find((f) => f.ordem === 1)?.profissional_codigo || '';
+    document.getElementById('ovFallback2').value = fallbacks.find((f) => f.ordem === 2)?.profissional_codigo || '';
+  } catch (err) {
+    const msg = document.getElementById('ouvidoriaConfigMsg');
+    if (msg) { msg.textContent = err.message; msg.className = 'form-msg is-error'; }
+  }
+}
+
+function setupOuvidoriaForms() {
+  document.getElementById('addOuvidoriaProfissionalForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('addOuvidoriaProfissionalMsg');
+    try {
+      const payload = {
+        codigo: document.getElementById('ovProfCodigo').value.trim(),
+        nome: document.getElementById('ovProfNome').value.trim(),
+        nomeOuvidorSus: document.getElementById('ovProfNomeSus').value.trim(),
+        email: document.getElementById('ovProfEmail').value.trim(),
+        observacao: document.getElementById('ovProfObs').value.trim(),
+      };
+      const res = await fetch('/api/ouvidoria/profissionais', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) });
+      const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Não foi possível cadastrar.');
+      e.target.reset(); msg.textContent = 'Profissional cadastrado.'; msg.className = 'form-msg is-success';
+      await loadOuvidoriaProfissionais();
+    } catch (err) { msg.textContent = err.message; msg.className = 'form-msg is-error'; }
+  });
+
+  document.getElementById('addOuvidoriaRegraForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('addOuvidoriaRegraMsg');
+    try {
+      const payload = {
+        titulo: document.getElementById('ovRegraTitulo').value.trim(),
+        divisao: document.getElementById('ovRegraDivisao').value.trim(),
+        subtipo: document.getElementById('ovRegraSubtipo').value.trim(),
+        prioridade: Number(document.getElementById('ovRegraPrioridade').value),
+        profissionalCodigo: document.getElementById('ovRegraProfissional').value,
+        descricao: document.getElementById('ovRegraDescricao').value.trim(),
+      };
+      const res = await fetch('/api/ouvidoria/regras', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) });
+      const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Não foi possível cadastrar a regra.');
+      e.target.reset(); document.getElementById('ovRegraSubtipo').value = 'geral'; document.getElementById('ovRegraPrioridade').value = '100';
+      msg.textContent = 'Regra cadastrada.'; msg.className = 'form-msg is-success'; await loadOuvidoriaRegras();
+    } catch (err) { msg.textContent = err.message; msg.className = 'form-msg is-error'; }
+  });
+
+  document.getElementById('ouvidoriaConfigForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('ouvidoriaConfigMsg');
+    const f1 = document.getElementById('ovFallback1').value;
+    const f2 = document.getElementById('ovFallback2').value;
+    if (f1 && f2 && f1 === f2) { msg.textContent = 'Escolha profissionais diferentes para o 1º e o 2º fallback.'; msg.className = 'form-msg is-error'; return; }
+    try {
+      const fallbacks = [f1, f2].filter(Boolean).map((profissionalCodigo) => ({ profissionalCodigo }));
+      const res = await fetch('/api/ouvidoria/configuracao', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ confidenceThreshold: Number(document.getElementById('ovConfidence').value) / 100, fallbacks }),
+      });
+      const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Não foi possível salvar.');
+      msg.textContent = 'Configuração salva.'; msg.className = 'form-msg is-success'; await loadOuvidoriaConfiguracao();
+    } catch (err) { msg.textContent = err.message; msg.className = 'form-msg is-error'; }
+  });
+}
+
+async function loadOuvidoriaAdmin() {
+  setupOuvidoriaForms();
+  await loadOuvidoriaProfissionais();
+  await Promise.all([loadOuvidoriaRegras(), loadOuvidoriaConfiguracao()]);
+}
+
 // ---------- Inicialização ----------
 
 (async () => {
@@ -1596,6 +1856,7 @@ async function loadAuditLogTable() {
     loadReportGroupsTable();
     loadReportsTable();
     loadUnidadesTable();
+    loadOuvidoriaAdmin();
   }
   if (currentUser.role === 'super_admin') {
     loadRolePermsTable();

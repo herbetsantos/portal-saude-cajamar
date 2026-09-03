@@ -1,89 +1,194 @@
-// Modelo de permissões por funcionalidade.
+// Permissões próprias do eMulti / Regulação de Vagas.
 //
-// - role_permissions define o "teto" (máximo permitido) por papel — editável
-//   em Administração > Perfis de acesso (só Super Admin edita).
-// - user_permissions guarda exceções por profissional DENTRO desse teto.
-// - EXCEÇÃO: regulacao_vagas é individual e independe do papel do Portal;
-//   suas responsabilidades internas são configuradas no próprio eMulti.
-// - super_admin sempre tem acesso a tudo e não passa por nenhuma das duas
-//   tabelas (evita a possibilidade de alguém se autobloquear por engano).
+// O papel do usuário no Portal Saúde (user/admin/admin_unidade) NÃO define
+// sua responsabilidade dentro da Regulação. As responsabilidades são
+// combináveis e ficam em regulacao_user_acessos, no portal-saude-db:
+//   - cadastrante: cadastra cidadãos e emite guias (nas unidades autorizadas)
+//   - regulador: organiza a fila, tria, transfere e cria acompanhamentos/grupos
+//   - executor: registra sessões/atendimentos da equipe
+//   - administrador: configura o módulo e possui todas as capacidades
+//
+// super_admin do Portal permanece com acesso total implícito, como salvaguarda.
+// Se a estrutura própria de acessos ainda não estiver disponível, existe um fallback de
+// compatibilidade para a antiga feature regulacao_vagas, evitando indisponibilidade.
 
-export const FEATURES = [
-  { key: 'receituario', label: 'Receituário' },
-  { key: 'malotes', label: 'Malotes e Remessas' },
-  { key: 'facilitawhats', label: 'FacilitaWhats' },
-  { key: 'mensageiro_esus', label: 'Mensageiro eSUS' },
-  { key: 'documentos', label: 'Documentos Úteis' },
-  { key: 'manuais', label: 'Manuais de Uso' },
-  { key: 'relatorios', label: 'Relatórios' },
-  { key: 'regulacao_vagas', label: 'Regulação de Vagas', managedExternally: true },
-  { key: 'administracao', label: 'Administração' },
-];
+const LEGACY_FEATURE_KEY = 'regulacao_vagas';
+export const REGULACAO_CAPABILITIES = ['cadastrante', 'regulador', 'executor', 'administrador'];
 
-export const FEATURE_KEYS = FEATURES.map((f) => f.key);
-const FEATURE_KEY_SET = new Set(FEATURE_KEYS);
-
-export function isFeatureKey(key) {
-  return FEATURE_KEY_SET.has(key);
+function emptyProfile(extra = {}) {
+  return {
+    acesso: false,
+    cadastrante: false,
+    regulador: false,
+    executor: false,
+    administrador: false,
+    fonte: 'regulacao_user_acessos',
+    ...extra,
+  };
 }
 
-function allTrue() {
-  const m = {};
-  FEATURE_KEYS.forEach((k) => { m[k] = true; });
-  return m;
-}
-function allFalse() {
-  const m = {};
-  FEATURE_KEYS.forEach((k) => { m[k] = false; });
-  return m;
+function normalizeProfile(row, extra = {}) {
+  if (!row) return emptyProfile(extra);
+  const administrador = !!row.administrador;
+  const profile = {
+    cadastrante: administrador || !!row.cadastrante,
+    regulador: administrador || !!row.regulador,
+    executor: administrador || !!row.executor,
+    administrador,
+    ...extra,
+  };
+  profile.acesso = profile.cadastrante || profile.regulador || profile.executor || profile.administrador;
+  return profile;
 }
 
-// Teto de funcionalidades de um papel (role). super_admin sempre tudo liberado.
-// Se a migração ainda não rodou (tabela não existe) ou o banco falhar por
-// qualquer motivo, cai pro "tudo liberado" em vez de quebrar a página inteira —
-// é assim que o site já se comportava antes desse recurso existir.
-export async function getRoleCeiling(env, role) {
-  if (role === 'super_admin') return allTrue();
+export function fullRegulacaoProfile(extra = {}) {
+  return {
+    acesso: true,
+    cadastrante: true,
+    regulador: true,
+    executor: true,
+    administrador: true,
+    fonte: 'super_admin',
+    ...extra,
+  };
+}
+
+// Antiga permissão genérica. Mantida apenas como fallback para instalações
+// que ainda não possuem a estrutura própria de acessos da Regulação.
+async function getLegacyPermission(env, user) {
+  if (user.role === 'super_admin') return true;
   try {
-    const { results } = await env.DB.prepare(
-      'SELECT feature_key, enabled FROM role_permissions WHERE role = ?'
-    ).bind(role).all();
-    const ceiling = allFalse();
-    results.forEach((r) => { if (isFeatureKey(r.feature_key)) ceiling[r.feature_key] = !!r.enabled; });
-    // Regulação de Vagas é individual: o papel do Portal não limita essa
-    // funcionalidade. Mantemos teto=true apenas para que a tela de permissões
-    // individuais possa habilitá-la; o valor efetivo depende de override.
-    ceiling.regulacao_vagas = true;
-    return ceiling;
+    const override = await env.DB.prepare(
+      'SELECT enabled FROM user_permissions WHERE user_id = ? AND feature_key = ?'
+    ).bind(user.id, LEGACY_FEATURE_KEY).first();
+    if (override) return !!override.enabled;
+
+    const ceiling = await env.DB.prepare(
+      'SELECT enabled FROM role_permissions WHERE role = ? AND feature_key = ?'
+    ).bind(user.role, LEGACY_FEATURE_KEY).first();
+    return ceiling ? !!ceiling.enabled : false;
   } catch {
-    return allTrue();
+    return false;
   }
 }
 
-// Permissões efetivas de um usuário: teto do papel + exceções individuais,
-// nunca ultrapassando o teto do papel. Mesma lógica de fail-open acima.
+async function inferLegacyResponsibilities(env, user) {
+  const legacyAllowed = await getLegacyPermission(env, user);
+  if (!legacyAllowed && user.role !== 'admin') return emptyProfile({ fonte: 'legado' });
+
+  let podeEmitir = false;
+  let podeExecutarDireto = false;
+  let membroEquipe = false;
+  try {
+    const direto = await env.DB.prepare(
+      `SELECT MAX(pode_emitir) AS emitir, MAX(pode_executar) AS executar
+       FROM regulacao_user_unidades WHERE user_id = ?`
+    ).bind(user.id).first();
+    podeEmitir = !!direto?.emitir;
+    podeExecutarDireto = !!direto?.executar;
+  } catch { /* tabelas antigas podem não existir */ }
+
+  try {
+    const equipe = await env.DB.prepare(
+      'SELECT 1 AS ok FROM regulacao_equipe_profissionais WHERE user_id = ? LIMIT 1'
+    ).bind(user.id).first();
+    membroEquipe = !!equipe;
+  } catch { /* tabela pode não existir */ }
+
+  // Compatibilidade: no modelo antigo "pode_executar" concentrava funções
+  // que agora foram separadas entre regulador e executor.
+  return normalizeProfile({
+    cadastrante: podeEmitir,
+    regulador: podeExecutarDireto,
+    executor: podeExecutarDireto || membroEquipe,
+    administrador: user.role === 'admin',
+  }, { fonte: 'legado' });
+}
+
+export async function getRegulacaoBinding(env, userId) {
+  const binding = { equipe: false, unidade: false };
+  try {
+    const [equipe, unidade] = await Promise.all([
+      env.DB.prepare(
+        `SELECT 1 AS ok
+         FROM regulacao_equipe_profissionais ep
+         JOIN regulacao_equipes e ON e.id = ep.equipe_id AND e.ativo = 1
+         WHERE ep.user_id = ? LIMIT 1`
+      ).bind(userId).first(),
+      env.DB.prepare(
+        `SELECT 1 AS ok
+         FROM regulacao_user_unidades ru
+         JOIN unidades u ON u.code = ru.unidade_code AND u.ativo = 1
+         WHERE ru.user_id = ? LIMIT 1`
+      ).bind(userId).first(),
+    ]);
+    binding.equipe = !!equipe;
+    binding.unidade = !!unidade;
+  } catch { /* vínculo é complementar; tabelas antigas podem não existir */ }
+  binding.acesso = binding.equipe || binding.unidade;
+  return binding;
+}
+
+export async function syncPortalRegulacaoFeature(env, userId) {
+  let responsabilidades = false;
+  try {
+    const row = await env.DB.prepare(
+      `SELECT cadastrante, regulador, executor, administrador
+       FROM regulacao_user_acessos WHERE user_id = ?`
+    ).bind(userId).first();
+    responsabilidades = !!(row && (row.cadastrante || row.regulador || row.executor || row.administrador));
+  } catch { /* compatibilidade */ }
+
+  const binding = await getRegulacaoBinding(env, userId);
+  const enabled = responsabilidades || binding.acesso;
+  await env.DB.prepare(
+    `INSERT INTO user_permissions (user_id, feature_key, enabled)
+     VALUES (?, ?, ?)
+     ON CONFLICT(user_id, feature_key) DO UPDATE SET enabled = excluded.enabled`
+  ).bind(userId, LEGACY_FEATURE_KEY, enabled ? 1 : 0).run();
+  return { enabled, responsabilidades, ...binding };
+}
+
+export async function getRegulacaoAccessProfile(env, user) {
+  if (!user) return emptyProfile();
+  if (user.role === 'super_admin') return fullRegulacaoProfile();
+
+  try {
+    const row = await env.DB.prepare(
+      `SELECT cadastrante, regulador, executor, administrador
+       FROM regulacao_user_acessos WHERE user_id = ?`
+    ).bind(user.id).first();
+    const profile = normalizeProfile(row);
+    const binding = await getRegulacaoBinding(env, user.id);
+
+    // Regra v2.17.3: o vínculo operacional por equipe ou por unidade já
+    // autoriza a entrada no eMulti. As classes continuam definindo o que
+    // o usuário pode fazer dentro da ferramenta.
+    if (binding.acesso) {
+      profile.acesso = true;
+      profile.vinculo_equipe = binding.equipe;
+      profile.vinculo_unidade = binding.unidade;
+      if (!row) profile.fonte = binding.equipe ? 'vinculo_equipe' : 'vinculo_unidade';
+      else profile.fonte = `${profile.fonte}+vinculo`;
+    }
+    return profile;
+  } catch (err) {
+    const msg = String(err?.message || '').toLowerCase();
+    if (msg.includes('no such table') && msg.includes('regulacao_user_acessos')) {
+      return inferLegacyResponsibilities(env, user);
+    }
+    throw err;
+  }
+}
+
+export function hasRegulacaoCapability(profile, capability) {
+  if (!REGULACAO_CAPABILITIES.includes(capability)) return false;
+  return !!profile?.administrador || !!profile?.[capability];
+}
+
+// Compatibilidade com /api/me antigo e com partes da interface que ainda
+// leem permissions.regulacao_vagas.
 export async function getUserPermissions(env, user) {
-  if (user.role === 'super_admin') return allTrue();
-  const ceiling = await getRoleCeiling(env, user.role);
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
-    ).bind(user.id).all();
-    const overrides = {};
-    results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
-    const effective = {};
-    FEATURE_KEYS.forEach((k) => {
-      if (k === 'regulacao_vagas') {
-        // Exceção proposital: acesso ao eMulti é individual e independente do
-        // role do Portal. Sem override explícito, fica desabilitado.
-        effective[k] = overrides.hasOwnProperty(k) ? overrides[k] : false;
-        return;
-      }
-      const wanted = overrides.hasOwnProperty(k) ? overrides[k] : ceiling[k];
-      effective[k] = ceiling[k] && wanted;
-    });
-    return effective;
-  } catch {
-    return { ...ceiling, regulacao_vagas: false };
-  }
+  const profile = await getRegulacaoAccessProfile(env, user);
+  return { regulacao_vagas: !!profile.acesso };
 }

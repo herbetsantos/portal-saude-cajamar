@@ -1,7 +1,7 @@
 // Unidades de saúde: fonte única de verdade para o seletor do Receituário e
 // para as telas de atribuição (Administração > Usuários e Administração >
 // Unidades). Os dados vivem na tabela `unidades` (ver schema.sql /
-// migration_unidades.sql) — cadastro de novas unidades é restrito ao Super
+// database/migrations/legacy/migration_unidades.sql) — cadastro de novas unidades é restrito ao Super
 // Administrador (ver functions/api/unidades/*.js).
 
 // Um "code" é o identificador estável usado em user_unidades e nunca muda

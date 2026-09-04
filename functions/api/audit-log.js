@@ -17,7 +17,7 @@ export async function onRequestGet({ request, env }) {
        FROM audit_log ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`
     ).bind(limit, offset).all());
   } catch {
-    return json({ error: 'A migração migration_security.sql ainda não foi executada neste banco.' }, 500);
+    return json({ error: 'A migração database/migrations/legacy/migration_security.sql ainda não foi executada neste banco.' }, 500);
   }
 
   return json({ entries: results });

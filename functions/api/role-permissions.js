@@ -16,7 +16,7 @@ export async function onRequestGet({ request, env }) {
   try {
     ({ results } = await env.DB.prepare('SELECT role, feature_key, enabled FROM role_permissions').all());
   } catch {
-    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+    return json({ error: 'A migração database/migrations/legacy/migration_permissions.sql ainda não foi executada neste banco.' }, 500);
   }
 
   const map = {};
@@ -60,7 +60,7 @@ export async function onRequestPut({ request, env }) {
       }
     }
   } catch {
-    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+    return json({ error: 'A migração database/migrations/legacy/migration_permissions.sql ainda não foi executada neste banco.' }, 500);
   }
 
   await logAudit(env, user, 'update_role_permissions', 'role_permissions', null, permissions);

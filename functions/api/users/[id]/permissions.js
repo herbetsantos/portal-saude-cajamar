@@ -1,7 +1,9 @@
 import { json, requireAdminPanel, getAdminUnidades } from '../../_utils.js';
 import { FEATURES, isFeatureKey, getRoleCeiling } from '../../_permissions.js';
 
-// GET: teto do papel do usuário-alvo + as exceções individuais já salvas.
+const EXTERNAL_KEYS = new Set(['regulacao_vagas', 'producao', 'apoio_clinico']);
+const SUPER_ADMIN_MANAGED = new Set(['producao', 'apoio_clinico']);
+
 export async function onRequestGet({ request, env, params }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
@@ -26,20 +28,17 @@ export async function onRequestGet({ request, env, params }) {
       'SELECT feature_key, enabled FROM user_permissions WHERE user_id = ?'
     ).bind(id).all());
   } catch {
-    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+    return json({ error: 'A estrutura de permissões ainda não foi aplicada neste banco.' }, 500);
   }
   const overrides = {};
   results.forEach((r) => { if (isFeatureKey(r.feature_key)) overrides[r.feature_key] = !!r.enabled; });
-  // Regulação é individual e, sem configuração explícita, deve aparecer
-  // desmarcada (não herda o papel do Portal).
-  if (!Object.prototype.hasOwnProperty.call(overrides, 'regulacao_vagas')) overrides.regulacao_vagas = false;
+  EXTERNAL_KEYS.forEach((k) => {
+    if (!Object.prototype.hasOwnProperty.call(overrides, k)) overrides[k] = false;
+  });
 
-  return json({ role: target.role, features: FEATURES, ceiling, overrides });
+  return json({ requester_role: requester.role, role: target.role, features: FEATURES, ceiling, overrides });
 }
 
-// PUT: substitui as exceções individuais do usuário.
-// body: { permissions: { receituario: true, malotes: false, ... } }
-// Qualquer chave fora do teto do papel é ignorada (nunca eleva acima do teto).
 export async function onRequestPut({ request, env, params }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
@@ -72,17 +71,33 @@ export async function onRequestPut({ request, env, params }) {
   const wanted = body.permissions || {};
 
   try {
-    await env.DB.prepare("DELETE FROM user_permissions WHERE user_id = ? AND feature_key <> 'regulacao_vagas'").bind(id).run();
+    // Funcionalidades internas: substitui normalmente, preservando ambientes externos.
+    await env.DB.prepare(
+      "DELETE FROM user_permissions WHERE user_id = ? AND feature_key NOT IN ('regulacao_vagas','producao','apoio_clinico')"
+    ).bind(id).run();
+
     for (const f of FEATURES) {
-      if (f.key === 'regulacao_vagas') continue; // gerenciado pelo eMulti
-      if (!ceiling[f.key]) continue; // nunca grava exceção acima do teto do papel
+      if (EXTERNAL_KEYS.has(f.key)) continue;
+      if (!ceiling[f.key]) continue;
       const enabled = wanted[f.key] ? 1 : 0;
       await env.DB.prepare(
         'INSERT INTO user_permissions (user_id, feature_key, enabled) VALUES (?, ?, ?)'
       ).bind(id, f.key, enabled).run();
     }
+
+    // Produção e Apoio Clínico são habilitados exclusivamente pelo Super Admin.
+    if (requester.role === 'super_admin') {
+      for (const key of SUPER_ADMIN_MANAGED) {
+        if (!Object.prototype.hasOwnProperty.call(wanted, key)) continue;
+        await env.DB.prepare(
+          `INSERT INTO user_permissions (user_id, feature_key, enabled)
+           VALUES (?, ?, ?)
+           ON CONFLICT(user_id, feature_key) DO UPDATE SET enabled=excluded.enabled`
+        ).bind(id, key, wanted[key] ? 1 : 0).run();
+      }
+    }
   } catch {
-    return json({ error: 'A migração migration_permissions.sql ainda não foi executada neste banco.' }, 500);
+    return json({ error: 'Não foi possível atualizar as permissões deste usuário.' }, 500);
   }
 
   return json({ ok: true });

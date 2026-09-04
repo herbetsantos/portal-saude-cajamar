@@ -60,7 +60,7 @@ Depois de conferir:
 
 3. **Rode a migração** no banco existente:
    ```
-   wrangler d1 execute portal-saude-db --remote --file=./migration_regulacao_setup.sql
+   wrangler d1 execute portal-saude-db --remote --file=./database/migrations/legacy/migration_regulacao_setup.sql
    ```
    ⚠️ **Rode isso uma única vez.** A maior parte é segura pra rodar de novo
    (usa `IF NOT EXISTS`/`OR IGNORE`), mas a primeira linha (`ALTER TABLE
@@ -104,7 +104,7 @@ subir o projeto separado.
 Para habilitar a preferência de aparência compartilhada com o eMulti, execute uma única vez:
 
 ```bash
-wrangler d1 execute portal-saude-db --remote --file=./migration_theme_v3.sql
+wrangler d1 execute portal-saude-db --remote --file=./database/migrations/legacy/migration_theme_v3.sql
 ```
 
 Opções gravadas em `users.theme`: `light`, `dark`, `contrast` e `auto`. O padrão é `light` para preservar o modo visual atual.
@@ -114,7 +114,7 @@ Opções gravadas em `users.theme`: `light`, `dark`, `contrast` e `auto`. O padr
 Execute no `portal-saude-db`:
 
 ```bash
-wrangler d1 execute portal-saude-db --remote --file=./migration_regulacao_acessos_v2_6.sql
+wrangler d1 execute portal-saude-db --remote --file=./database/migrations/legacy/migration_regulacao_acessos_v2_6.sql
 ```
 
 Depois publique o Portal v2.6 e o eMulti v2.6. A feature `regulacao_vagas` no Portal passa a ser individual e serve apenas para exibir/abrir a ferramenta; Cadastrante, Regulador, Executor e Administrador são definidos no eMulti.

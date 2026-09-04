@@ -3,7 +3,7 @@
 // Pages que lê o MESMO banco (env.DB). Nunca carrega senha nem o token de
 // sessão em si — só permite que o outro site crie a PRÓPRIA sessão local
 // para o mesmo user_id, depois de validar o código uma única vez.
-// Ver migration_regulacao_setup.sql (tabela handoff_tokens) e o
+// Ver database/migrations/legacy/migration_regulacao_setup.sql (tabela handoff_tokens) e o
 // functions/_middleware.js do projeto regulacao-vagas-cajamar, que consome
 // este código.
 

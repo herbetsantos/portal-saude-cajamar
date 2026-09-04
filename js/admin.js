@@ -110,6 +110,14 @@ async function loadUpdatesTable() {
   });
 }
 
+async function updateImageValue(urlId, fileId) {
+  const url = document.getElementById(urlId)?.value.trim() || '';
+  const file = document.getElementById(fileId)?.files?.[0];
+  if (!file) return url;
+  if (file.size > 600 * 1024) throw new Error('A imagem deve ter no máximo 600 KB.');
+  return await new Promise((resolve, reject) => { const r=new FileReader(); r.onload=()=>resolve(String(r.result||'')); r.onerror=()=>reject(new Error('Não foi possível ler a imagem.')); r.readAsDataURL(file); });
+}
+
 document.getElementById('addUpdateForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const msgEl = document.getElementById('addUpdateMsg');
@@ -121,7 +129,9 @@ document.getElementById('addUpdateForm').addEventListener('submit', async (e) =>
     published_at: document.getElementById('upDate').value,
     link_url: document.getElementById('upLinkUrl').value.trim(),
     link_label: document.getElementById('upLinkLabel').value.trim(),
+    image_alt: document.getElementById('upImageAlt').value.trim(),
   };
+  try { payload.image_url = await updateImageValue('upImageUrl','upImageFile'); } catch (err) { msgEl.className='form-msg is-error'; msgEl.textContent=err.message; return; }
   try {
     const res = await fetch('/api/updates', {
       method: 'POST',
@@ -167,6 +177,14 @@ function openEditUpdateModal(item) {
       <label>Texto do link (opcional)</label>
       <input type="text" id="editUpLinkLabel" value="${escapeAttr(item.link_label || '')}">
     </div>
+    <div class="field">
+      <label>Imagem (URL/caminho ou data incorporada)</label>
+      <input type="text" id="editUpImageUrl" value="${escapeAttr(item.image_url || '')}">
+    </div>
+    <div class="field">
+      <label>Descrição da imagem</label>
+      <input type="text" id="editUpImageAlt" value="${escapeAttr(item.image_alt || '')}">
+    </div>
     <div class="modal__actions">
       <button class="btn btn--outline btn--sm" id="cancelEditUpdate" type="button">Cancelar</button>
       <button class="btn btn--accent btn--sm" id="saveEditUpdate" type="button">Salvar alterações</button>
@@ -187,6 +205,8 @@ function openEditUpdateModal(item) {
           published_at: document.getElementById('editUpDate').value,
           link_url: document.getElementById('editUpLinkUrl').value.trim(),
           link_label: document.getElementById('editUpLinkLabel').value.trim(),
+          image_url: document.getElementById('editUpImageUrl').value.trim(),
+          image_alt: document.getElementById('editUpImageAlt').value.trim(),
         }),
       });
       const data = await res.json();
@@ -994,7 +1014,7 @@ async function loadRolePermsTable() {
     data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erro ao carregar.');
   } catch (err) {
-    wrap.innerHTML = `<p class="muted">Não foi possível carregar os perfis de acesso (${escapeHtml(err.message)}). Confira se a migração migration_permissions.sql já foi executada no banco D1.</p>`;
+    wrap.innerHTML = `<p class="muted">Não foi possível carregar os perfis de acesso (${escapeHtml(err.message)}). Confira se a migração database/migrations/legacy/migration_permissions.sql já foi executada no banco D1.</p>`;
     return;
   }
 
@@ -1065,18 +1085,61 @@ function roleBadgeClass(role) {
   return role === 'user' ? 'badge--user' : 'badge--admin';
 }
 
+const usersListState = { page: 1, pageSize: 20, q: '', unidade: '', role: '', status: '' };
+let usersSearchTimer = null;
+
+function usersPaginationHtml(meta) {
+  const total = Number(meta?.total || 0);
+  const page = Number(meta?.page || 1);
+  const pages = Number(meta?.pages || 0);
+  const size = Number(meta?.page_size || usersListState.pageSize);
+  if (!total) return '<span class="muted">Nenhum registro encontrado.</span>';
+  const first = (page - 1) * size + 1;
+  const last = Math.min(total, page * size);
+  return `
+    <div class="muted">Exibindo ${first}–${last} de ${total}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label class="muted" for="usersPageSize">Por página</label>
+      <select id="usersPageSize" style="width:auto">
+        ${[10,20,50,100].map((n)=>`<option value="${n}" ${n===size?'selected':''}>${n}</option>`).join('')}
+      </select>
+      <button class="btn btn--outline btn--sm" type="button" id="usersPrevPage" ${page<=1?'disabled':''}>Anterior</button>
+      <span class="muted">Página ${page} de ${pages || 1}</span>
+      <button class="btn btn--outline btn--sm" type="button" id="usersNextPage" ${!pages || page>=pages?'disabled':''}>Próxima</button>
+    </div>`;
+}
+
 async function loadUsersTable() {
   const wrap = document.getElementById('usersTableWrap');
+  const pager = document.getElementById('usersPagination');
   wrap.innerHTML = '<div class="skeleton-loading">Carregando…</div>';
 
-  const res = await fetch('/api/users', { credentials: 'same-origin' });
+  const params = new URLSearchParams({
+    page: String(usersListState.page),
+    page_size: String(usersListState.pageSize),
+  });
+  if (usersListState.q) params.set('q', usersListState.q);
+  if (usersListState.unidade) params.set('unidade', usersListState.unidade);
+  if (usersListState.role) params.set('role', usersListState.role);
+  if (usersListState.status) params.set('status', usersListState.status);
+
+  const res = await fetch(`/api/users?${params.toString()}`, { credentials: 'same-origin' });
   const data = await res.json();
+  if (!res.ok) {
+    wrap.innerHTML = `<div class="form-msg is-error">${escapeHtml(data.error || 'Não foi possível carregar usuários.')}</div>`;
+    if (pager) pager.innerHTML = '';
+    return;
+  }
   const users = data.users || [];
+  const meta = data.pagination || {};
+  usersListState.page = Number(meta.page || 1);
+  usersListState.pageSize = Number(meta.page_size || usersListState.pageSize);
   const canManageAdmins = currentUser && currentUser.role === 'super_admin';
 
-wrap.innerHTML = `
+  wrap.innerHTML = users.length ? `
+    <div style="overflow:auto">
     <table class="data-table">
-      <thead><tr><th>Nome</th><th>Usuário</th><th>Unidade</th><th>Papel</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th>Usuário</th><th>Unidade</th><th>Função</th><th>Status</th><th></th></tr></thead>
       <tbody>
         ${users.map((u) => {
           const isAdminLevel = u.role !== 'user';
@@ -1098,8 +1161,23 @@ wrap.innerHTML = `
           </tr>
         `;}).join('')}
       </tbody>
-    </table>
-  `;
+    </table></div>
+  ` : '<div class="empty-state">Nenhum usuário encontrado com os filtros selecionados.</div>';
+
+  if (pager) {
+    pager.innerHTML = usersPaginationHtml(meta);
+    document.getElementById('usersPageSize')?.addEventListener('change', (e) => {
+      usersListState.pageSize = Number(e.target.value) || 20;
+      usersListState.page = 1;
+      loadUsersTable();
+    });
+    document.getElementById('usersPrevPage')?.addEventListener('click', () => {
+      if (usersListState.page > 1) { usersListState.page--; loadUsersTable(); }
+    });
+    document.getElementById('usersNextPage')?.addEventListener('click', () => {
+      usersListState.page++; loadUsersTable();
+    });
+  }
 
   wrap.querySelectorAll('[data-edit-user]').forEach((btn) => {
     const u = users.find((x) => String(x.id) === btn.dataset.editUser);
@@ -1112,7 +1190,53 @@ wrap.innerHTML = `
     const u = users.find((x) => String(x.id) === btn.dataset.configUser);
     btn.addEventListener('click', () => openUserConfigModal(u));
   });
-}  
+}
+
+function setupUsersListFilters() {
+  const unit = document.getElementById('usersUnitFilter');
+  if (unit) {
+    unit.innerHTML = '<option value="">Todas as unidades</option>' +
+      UNIDADES_NOMES.map((n) => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('');
+    unit.addEventListener('change', () => {
+      usersListState.unidade = unit.value;
+      usersListState.page = 1;
+      loadUsersTable();
+    });
+  }
+  const role = document.getElementById('usersRoleFilter');
+  role?.addEventListener('change', () => {
+    usersListState.role = role.value;
+    usersListState.page = 1;
+    loadUsersTable();
+  });
+  const status = document.getElementById('usersStatusFilter');
+  status?.addEventListener('change', () => {
+    usersListState.status = status.value;
+    usersListState.page = 1;
+    loadUsersTable();
+  });
+  const search = document.getElementById('usersSearch');
+  search?.addEventListener('input', () => {
+    clearTimeout(usersSearchTimer);
+    usersSearchTimer = setTimeout(() => {
+      usersListState.q = search.value.trim();
+      usersListState.page = 1;
+      loadUsersTable();
+    }, 300);
+  });
+  document.getElementById('usersClearFilters')?.addEventListener('click', () => {
+    usersListState.q = '';
+    usersListState.unidade = '';
+    usersListState.role = '';
+    usersListState.status = '';
+    usersListState.page = 1;
+    if (search) search.value = '';
+    if (unit) unit.value = '';
+    if (role) role.value = '';
+    if (status) status.value = '';
+    loadUsersTable();
+  });
+}
 
 // ---------- Configurações do profissional (card único) ----------
 // Substitui os antigos botões separados "Unidades (Receituário)", "Grupos de
@@ -1163,16 +1287,23 @@ async function openUserConfigModal(u) {
     // ---- Funcionalidades ----
     const featuresHtml = `
       <div class="panel-section__title" style="font-size:15px">Funcionalidades habilitadas</div>
-      <p class="muted" style="margin:2px 0 8px">Marque o que ${escapeHtml(u.name)} pode usar. Itens em cinza não estão liberados para o papel "${roleLabel(u.role)}". <strong>Regulação de Vagas</strong> é uma permissão individual; as responsabilidades internas (Cadastrante, Regulador, Executor) são configuradas no próprio eMulti.</p>
+      <p class="muted" style="margin:2px 0 8px">Marque o que ${escapeHtml(u.name)} pode usar. Itens em cinza não estão liberados para o papel "${roleLabel(u.role)}". <strong>Regulação de Vagas</strong> mantém suas responsabilidades internas no eMulti. <strong>Produção</strong> e <strong>Apoio Clínico / IA</strong> têm acesso ao ambiente liberado exclusivamente pelo Super Administrador; os perfis internos são configurados no próprio ambiente.</p>
       <div class="checkbox-list" id="userCfgFeatures">
         ${permData.features.map((f) => {
           const dentroDoTeto = !!permData.ceiling[f.key];
           const gerenciadoExterno = !!f.managedExternally;
-          const marcado = dentroDoTeto && (permData.overrides.hasOwnProperty(f.key) ? permData.overrides[f.key] : true);
+          const superPodeGerenciar = !!f.managedBySuperAdmin && currentUser?.role === 'super_admin';
+          const marcado = dentroDoTeto && (permData.overrides.hasOwnProperty(f.key) ? permData.overrides[f.key] : !gerenciadoExterno);
+          const habilitado = dentroDoTeto && (!gerenciadoExterno || superPodeGerenciar);
+          const sufixo = f.key === 'regulacao_vagas'
+            ? ' <span class="muted" style="font-size:12px">(responsabilidades no eMulti)</span>'
+            : (f.managedBySuperAdmin
+                ? ' <span class="muted" style="font-size:12px">(acesso ao ambiente — Super Admin)</span>'
+                : (dentroDoTeto ? '' : ' <span class="muted" style="font-size:12px">(fora do perfil)</span>'));
           return `
-            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;${dentroDoTeto ? '' : 'color:var(--muted)'}">
-              <input type="checkbox" value="${f.key}" ${marcado ? 'checked' : ''} ${(dentroDoTeto && !gerenciadoExterno) ? '' : 'disabled'} style="width:auto">
-              ${escapeHtml(f.label)}${gerenciadoExterno ? ' <span class="muted" style="font-size:12px">(gerenciado no eMulti)</span>' : (dentroDoTeto ? '' : ' <span class="muted" style="font-size:12px">(fora do perfil)</span>')}
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;${habilitado ? '' : 'color:var(--muted)'}">
+              <input type="checkbox" value="${f.key}" ${marcado ? 'checked' : ''} ${habilitado ? '' : 'disabled'} style="width:auto">
+              ${escapeHtml(f.label)}${sufixo}
             </label>
           `;
         }).join('')}
@@ -1515,7 +1646,7 @@ async function loadAuditLogTable() {
     data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Não foi possível carregar a auditoria.');
   } catch (err) {
-    wrap.innerHTML = `<p class="muted">Não foi possível carregar a auditoria (${escapeHtml(err.message)}). Confira se a migração migration_security.sql já foi executada no banco D1.</p>`;
+    wrap.innerHTML = `<p class="muted">Não foi possível carregar a auditoria (${escapeHtml(err.message)}). Confira se a migração database/migrations/legacy/migration_security.sql já foi executada no banco D1.</p>`;
     return;
   }
 
@@ -1863,5 +1994,12 @@ async function loadOuvidoriaAdmin() {
     loadAuditLogTable();
   }
   loadSignupRequestsTable();
+  setupUsersListFilters();
   loadUsersTable();
+})();
+
+
+// v2.9.1 — retenção de chat, exclusiva do super_admin
+(async function setupChatRetention(){
+  try { const me=await (await fetch('/api/me')).json(); if(me.user?.role!=='super_admin') return; const tab=document.getElementById('chatConfigTab'); if(tab)tab.style.display=''; const c=await (await fetch('/api/chat/config')).json(); if(c.config){document.getElementById('internalRetention').value=c.config.internal_retention_days||30;document.getElementById('supportRetention').value=c.config.support_retention_days||30;} const form=document.getElementById('chatConfigForm'); if(form)form.addEventListener('submit',async e=>{e.preventDefault();const r=await fetch('/api/chat/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({internal_retention_days:Number(document.getElementById('internalRetention').value),support_retention_days:Number(document.getElementById('supportRetention').value)})});const d=await r.json();const m=document.getElementById('chatConfigMsg');m.textContent=r.ok?'Prazos atualizados.':(d.error||'Erro.');m.className='form-msg '+(r.ok?'is-success':'is-error');}); } catch(_){}
 })();

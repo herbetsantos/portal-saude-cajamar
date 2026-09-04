@@ -25,7 +25,7 @@ export async function onRequestGet({ request, env }) {
       : env.DB.prepare(baseQuery + suffix);
     ({ results } = await stmt.all());
   } catch {
-    // A migração migration_permissions.sql ainda não rodou (coluna feature_key
+    // A migração database/migrations/legacy/migration_permissions.sql ainda não rodou (coluna feature_key
     // não existe) — cai pra consulta antiga, sem quebrar o menu Ferramentas
     // pra ninguém enquanto isso não é corrigido.
     const stmt = category

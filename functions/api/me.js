@@ -11,7 +11,7 @@ export async function onRequestGet({ request, env }) {
     const row = await env.DB.prepare('SELECT theme FROM users WHERE id = ?').bind(user.id).first();
     if (['auto', 'light', 'dark', 'contrast'].includes(row?.theme)) theme = row.theme;
   } catch {
-    // Compatibilidade enquanto migration_theme_v3.sql ainda não foi executada.
+    // Compatibilidade enquanto database/migrations/legacy/migration_theme_v3.sql ainda não foi executada.
   }
 
   return json({ user: { ...user, theme, permissions } });

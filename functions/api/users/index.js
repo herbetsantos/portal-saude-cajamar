@@ -4,23 +4,65 @@ export async function onRequestGet({ request, env }) {
   const { user: requester, error } = await requireAdminPanel(request, env);
   if (error) return error;
 
+  const url = new URL(request.url);
+  const page = Math.max(1, Number(url.searchParams.get('page') || 1));
+  const requestedPageSize = Number(url.searchParams.get('page_size') || 20);
+  const pageSize = [10, 20, 50, 100].includes(requestedPageSize) ? requestedPageSize : 20;
+  const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+  const unidade = (url.searchParams.get('unidade') || '').trim().toLowerCase();
+  const role = (url.searchParams.get('role') || '').trim();
+  const status = (url.searchParams.get('status') || '').trim();
+
+  const where = [];
+  const binds = [];
+
   if (requester.role === 'admin_unidade') {
     const minhas = (await getAdminUnidades(env, requester.id)).map((u) => u.toLowerCase());
-    if (minhas.length === 0) return json({ users: [] });
-    const placeholders = minhas.map(() => '?').join(',');
-    const { results } = await env.DB.prepare(
-      `SELECT id, username, name, role, active, unidade, created_at FROM users
-       WHERE role = 'user' AND lower(unidade) IN (${placeholders})
-       ORDER BY name ASC`
-    ).bind(...minhas).all();
-    return json({ users: results });
+    if (minhas.length === 0) {
+      return json({ users: [], pagination: { page, page_size: pageSize, total: 0, pages: 0 } });
+    }
+    where.push(`role = 'user'`);
+    where.push(`lower(unidade) IN (${minhas.map(() => '?').join(',')})`);
+    binds.push(...minhas);
   }
 
-  const { results } = await env.DB.prepare(
-    'SELECT id, username, name, role, active, unidade, created_at FROM users ORDER BY name ASC'
-  ).all();
+  if (q) {
+    where.push(`(lower(name) LIKE ? OR lower(username) LIKE ?)`);
+    binds.push(`%${q}%`, `%${q}%`);
+  }
+  if (unidade) {
+    where.push(`lower(COALESCE(unidade, '')) = ?`);
+    binds.push(unidade);
+  }
+  if (role && ['user', 'admin', 'super_admin', 'admin_unidade'].includes(role)) {
+    where.push(`role = ?`);
+    binds.push(role);
+  }
+  if (status === 'ativo') where.push(`active = 1`);
+  if (status === 'inativo') where.push(`active = 0`);
 
-  return json({ users: results });
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const countRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS total FROM users ${whereSql}`
+  ).bind(...binds).first();
+
+  const total = Number(countRow?.total || 0);
+  const pages = total ? Math.ceil(total / pageSize) : 0;
+  const safePage = pages ? Math.min(page, pages) : 1;
+  const safeOffset = (safePage - 1) * pageSize;
+
+  const { results } = await env.DB.prepare(
+    `SELECT id, username, name, role, active, unidade, created_at
+     FROM users
+     ${whereSql}
+     ORDER BY name ASC
+     LIMIT ? OFFSET ?`
+  ).bind(...binds, pageSize, safeOffset).all();
+
+  return json({
+    users: results || [],
+    pagination: { page: safePage, page_size: pageSize, total, pages }
+  });
 }
 
 export async function onRequestPost({ request, env }) {

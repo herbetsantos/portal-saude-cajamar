@@ -78,6 +78,12 @@ const TOPBAR_HTML = `
           <span class="portal-account-button__chevron">⌄</span>
         </button>
         <div class="portal-account-menu" id="portalAccountMenu" hidden>
+          <a href="/comunicacao.html"><span>Comunicação interna</span><b class="menu-unread-badge" id="portalInternalBadge" hidden>0</b></a>
+          <a href="/suporte.html"><span>Suporte</span><b class="menu-unread-badge" id="portalSupportBadge" hidden>0</b></a>
+          <a href="/novidades.html"><span>Novidades da Versão</span></a>
+          <a href="/assistente-rotinas.html"><span>Assistente de Rotinas</span></a>
+          <a href="/chamados.html" id="portalTicketsLink" style="display:none"><span>Chamados</span></a>
+          <div class="portal-account-menu__divider"></div>
           <button type="button" id="logoutBtn"><span aria-hidden="true">↪</span><span>Sair</span></button>
         </div>
       </div>
@@ -146,6 +152,7 @@ function renderTopbarUser(user) {
   const accountAvatar = document.getElementById('portalAccountAvatar');
   if (accountName) accountName.textContent = safeName;
   if (accountAvatar) accountAvatar.textContent = initials(safeName);
+  const ticketsLink=document.getElementById('portalTicketsLink'); if(ticketsLink) ticketsLink.style.display=user.role==='super_admin'?'':'none';
   const chipMobile = document.getElementById('userChipMobile');
   if (chipMobile) chipMobile.innerHTML = chipHtml;
   const perms = user.permissions || {};
@@ -372,6 +379,8 @@ function escapeHtml(str) {
 }
 function escapeAttr(str) { return escapeHtml(str); }
 
+
+async function updatePortalChatBadges(){try{const r=await fetch('/api/chat/status?platform=portal',{credentials:'same-origin'});if(!r.ok)return;const d=await r.json();for(const [id,n] of [['portalInternalBadge',d.internal_unread],['portalSupportBadge',d.support_unread]]){const el=document.getElementById(id);if(el){el.hidden=!Number(n);el.textContent=Number(n)>99?'99+':String(n||0);}}}catch{}}
 async function initPortalChrome(activeKey) {
   setFavicon('/assets/favicon.png');
   renderTopbar(activeKey);
@@ -390,5 +399,7 @@ async function initPortalChrome(activeKey) {
   setupFerramentasDropdown();
   loadFerramentasMenu(user.permissions);
   loadRelatoriosNav(user.permissions);
+  updatePortalChatBadges();
+  setInterval(updatePortalChatBadges, 10000);
   return user;
 }

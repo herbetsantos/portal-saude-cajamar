@@ -200,11 +200,13 @@ html[data-theme-resolved="contrast"] :is(.btn--accent,.btn-wpp,.btn-gerar,.btn-p
   border-radius:10px; background:#fff; border:1px solid var(--line); box-shadow:var(--shadow-lg); color:var(--ink);
 }
 .portal-account-menu[hidden] { display:none; }
-.portal-account-menu button {
+.portal-account-menu button,
+.portal-account-menu a {
   width:100%; border:0; background:transparent; color:var(--ink); display:flex; align-items:center; gap:9px;
   padding:9px 11px; border-radius:7px; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; text-align:left;
 }
-.portal-account-menu button:hover { background:var(--surface); color:var(--primary-dark); }
+.portal-account-menu button:hover,
+.portal-account-menu a:hover { background:var(--surface); color:var(--primary-dark); }
 .theme-choice-list { display:flex; flex-direction:column; gap:2px; }
 html[data-theme-resolved="dark"] .portal-account-menu,
 html[data-theme-resolved="contrast"] .portal-account-menu { background:var(--theme-panel); border-color:var(--line); }

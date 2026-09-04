@@ -14,12 +14,15 @@ export async function onRequestPut({ request, env, params }) {
     return json({ error: 'Requisição inválida.' }, 400);
   }
 
-  const { title, body: text, tag, link_url, link_label, published_at } = body;
+  const { title, body: text, tag, link_url, link_label, image_url, image_alt, published_at } = body;
   if (!title || !title.trim()) return json({ error: 'Informe um título.' }, 400);
   if (!text || !text.trim()) return json({ error: 'Informe o texto do aviso.' }, 400);
+  const imageValue = image_url ? String(image_url).trim() : '';
+  if (imageValue && !/^(https:\/\/|\/|data:image\/(png|jpeg|webp|gif);base64,)/i.test(imageValue)) return json({ error: 'Imagem inválida. Use HTTPS, caminho local ou PNG/JPEG/WEBP/GIF.' }, 400);
+  if (imageValue.length > 900000) return json({ error: 'Imagem muito grande.' }, 400);
 
   await env.DB.prepare(
-    `UPDATE updates SET title = ?, body = ?, tag = ?, link_url = ?, link_label = ?,
+    `UPDATE updates SET title = ?, body = ?, tag = ?, link_url = ?, link_label = ?, image_url = ?, image_alt = ?,
      published_at = COALESCE(NULLIF(?, ''), published_at)
      WHERE id = ?`
   )
@@ -29,6 +32,8 @@ export async function onRequestPut({ request, env, params }) {
       tag ? tag.trim() : null,
       link_url ? link_url.trim() : null,
       link_label ? link_label.trim() : null,
+      imageValue || null,
+      image_alt ? String(image_alt).trim() : null,
       published_at || '',
       id
     )

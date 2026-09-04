@@ -9,6 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/theme.css">
+<style>
+@media(max-width:900px){#usersListControls{grid-template-columns:1fr!important}.admin-pagination{justify-content:flex-start!important}}
+</style>
 </head>
 <body>
 
@@ -38,6 +41,7 @@
       <button class="admin-tab" data-tab="perfis">Perfis de acesso</button>
       <button class="admin-tab" data-tab="usuarios">Usuários</button>
       <button class="admin-tab" data-tab="auditoria">Auditoria</button>
+      <button class="admin-tab" data-tab="chat-config" id="chatConfigTab" style="display:none">Chat e suporte</button>
       <button class="admin-tab" data-tab="conta">Minha Conta</button>
     </div>
 
@@ -77,6 +81,19 @@
     <div class="field">
       <label for="upLinkLabel">Texto do link (opcional)</label>
       <input type="text" id="upLinkLabel" placeholder="Ex.: Ver anexo">
+    </div>
+    <div class="field">
+      <label for="upImageUrl">Imagem (URL ou caminho, opcional)</label>
+      <input type="text" id="upImageUrl" placeholder="https://… ou /assets/imagem.jpg">
+    </div>
+    <div class="field">
+      <label for="upImageFile">Ou selecionar imagem</label>
+      <input type="file" id="upImageFile" accept="image/png,image/jpeg,image/webp,image/gif">
+      <small class="muted">Até 600 KB. A imagem será incorporada à mensagem.</small>
+    </div>
+    <div class="field field--full">
+      <label for="upImageAlt">Descrição da imagem (acessibilidade)</label>
+      <input type="text" id="upImageAlt" placeholder="Descreva brevemente a imagem">
     </div>
     <div class="inline-form__actions">
       <button type="submit" class="btn btn--accent btn--sm">Publicar atualização</button>
@@ -357,7 +374,15 @@
             <div class="panel-section__desc">Pessoas com acesso ao portal.</div>
           </div>
         </div>
+        <div class="admin-list-controls" id="usersListControls" style="display:grid;grid-template-columns:minmax(180px,1.5fr) minmax(180px,1fr) minmax(150px,.8fr) minmax(130px,.7fr) auto;gap:10px;align-items:end;margin:0 0 14px">
+          <div class="field"><label for="usersSearch">Buscar</label><input id="usersSearch" type="search" placeholder="Nome ou usuário"></div>
+          <div class="field"><label for="usersUnitFilter">Unidade</label><select id="usersUnitFilter"><option value="">Todas as unidades</option></select></div>
+          <div class="field"><label for="usersRoleFilter">Função</label><select id="usersRoleFilter"><option value="">Todas</option><option value="user">Usuário</option><option value="admin_unidade">Administrador de Unidade</option><option value="admin">Administrador</option><option value="super_admin">Super Administrador</option></select></div>
+          <div class="field"><label for="usersStatusFilter">Status</label><select id="usersStatusFilter"><option value="">Todos</option><option value="ativo">Ativos</option><option value="inativo">Inativos</option></select></div>
+          <button type="button" id="usersClearFilters" class="btn btn--outline btn--sm">Limpar filtros</button>
+        </div>
         <div id="usersTableWrap"><div class="skeleton-loading">Carregando usuários…</div></div>
+        <div id="usersPagination" class="admin-pagination" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:12px 0 22px"></div>
 
         <form id="addUserForm" class="inline-form">
           <div class="field">
@@ -428,8 +453,13 @@
         </form>
       </section>
 
+      <section class="panel-section" data-panel="chat-config"><div class="panel-section__head"><div><div class="panel-section__title">Chat e suporte</div><div class="panel-section__desc">Prazos de retenção compartilhados pelo Portal Saúde e eMulti.</div></div></div><form id="chatConfigForm" class="inline-form"><div class="field"><label>Comunicação interna (dias)</label><input id="internalRetention" type="number" min="1" max="3650" value="30"></div><div class="field"><label>Suporte (dias)</label><input id="supportRetention" type="number" min="1" max="3650" value="30"></div><div class="inline-form__actions"><button class="btn btn--accent" type="submit">Salvar prazos</button></div><div id="chatConfigMsg" class="form-msg"></div></form></section>
+
     </div>
-  </div>
+  
+
+
+</div>
 </main>
 
 <!-- Modal genérico de edição -->

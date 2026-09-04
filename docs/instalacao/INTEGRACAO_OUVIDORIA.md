@@ -3,7 +3,7 @@
 ## 1. Aplicar a migração
 
 ```bash
-wrangler d1 execute portal-saude-db --remote --file=./migration_ouvidoria_v2_8.sql
+wrangler d1 execute portal-saude-db --remote --file=./database/migrations/legacy/migration_ouvidoria_v2_8.sql
 ```
 
 A migração é aditiva e não toca nas tabelas atuais do Portal.

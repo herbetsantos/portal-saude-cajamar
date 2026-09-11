@@ -4,8 +4,9 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE _cf_KV ( key TEXT PRIMARY KEY, value BLOB ) WITHOUT ROWID;
 CREATE TABLE admin_unidades ( admin_user_id INTEGER NOT NULL, unidade TEXT NOT NULL, PRIMARY KEY (admin_user_id, unidade), FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE );
 CREATE TABLE audit_log ( id INTEGER PRIMARY KEY AUTOINCREMENT, actor_user_id INTEGER, actor_username TEXT, action TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT, details TEXT, created_at TEXT DEFAULT (datetime('now')), FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL );
-CREATE TABLE handoff_tokens ( token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT DEFAULT (datetime('now')), expires_at TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE );
-CREATE TABLE links ( id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL CHECK (category IN ('ferramenta','documento','manual')), title TEXT NOT NULL, url TEXT NOT NULL, description TEXT, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT DEFAULT (datetime('now')) , open_mode TEXT NOT NULL DEFAULT '_blank', feature_key TEXT);
+CREATE TABLE auth_clients ( app_key TEXT PRIMARY KEY, name TEXT NOT NULL, origin TEXT NOT NULL, callback_path TEXT NOT NULL DEFAULT '/', default_destination TEXT NOT NULL DEFAULT '/', active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)), created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE handoff_tokens ( token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT DEFAULT (datetime('now')), expires_at TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0, app_key TEXT, destination TEXT, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE );
+CREATE TABLE links ( id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL CHECK (category IN ('ferramenta','documento','manual')), title TEXT NOT NULL, url TEXT NOT NULL, description TEXT, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT DEFAULT (datetime('now')) , open_mode TEXT NOT NULL DEFAULT '_blank', feature_key TEXT, auth_client_key TEXT REFERENCES auth_clients(app_key) ON DELETE SET NULL);
 CREATE TABLE login_attempts ( id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, ip TEXT, success INTEGER NOT NULL, created_at TEXT DEFAULT (datetime('now')) );
 CREATE TABLE ouvidoria_config ( id INTEGER PRIMARY KEY CHECK (id = 1), confidence_threshold REAL NOT NULL DEFAULT 0.80 CHECK (confidence_threshold >= 0 AND confidence_threshold <= 1), versao INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL DEFAULT (datetime('now')) );
 CREATE TABLE ouvidoria_fallbacks ( ordem INTEGER PRIMARY KEY CHECK (ordem BETWEEN 1 AND 10), profissional_codigo TEXT NOT NULL, ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0,1)), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (profissional_codigo) REFERENCES ouvidoria_profissionais(codigo) );
@@ -1101,13 +1102,24 @@ INSERT INTO user_permissions (user_id, feature_key, enabled)
 SELECT id, 'apoio_clinico', 0 FROM users WHERE role <> 'super_admin'
 ON CONFLICT(user_id, feature_key) DO NOTHING;
 
+CREATE INDEX IF NOT EXISTS idx_handoff_tokens_app_key ON handoff_tokens(app_key, used, expires_at);
+CREATE INDEX IF NOT EXISTS idx_links_auth_client_key ON links(auth_client_key);
+
+INSERT INTO auth_clients(app_key,name,origin,callback_path,default_destination,active)
+VALUES('emulti','eMulti | Regulação','https://emulti.pages.dev','/','/painel.html',1)
+ON CONFLICT(app_key) DO UPDATE SET name=excluded.name,origin=excluded.origin,callback_path=excluded.callback_path,default_destination=excluded.default_destination,active=excluded.active,updated_at=datetime('now');
+
+UPDATE links
+SET auth_client_key='emulti'
+WHERE category='ferramenta' AND (feature_key='regulacao_vagas' OR lower(url) LIKE 'https://emulti.pages.dev%');
+
 CREATE TABLE IF NOT EXISTS app_db_meta (
   app_key TEXT PRIMARY KEY,
   schema_version TEXT NOT NULL,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 INSERT INTO app_db_meta (app_key, schema_version, updated_at)
-VALUES ('portal_saude', '2.10.1', datetime('now'))
+VALUES ('portal_saude', '2.11.0', datetime('now'))
 ON CONFLICT(app_key) DO UPDATE SET schema_version=excluded.schema_version, updated_at=excluded.updated_at;
 
 

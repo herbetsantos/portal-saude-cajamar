@@ -19,6 +19,7 @@ database/README.md
 database/archive/README.md
 database/archive/schema-legacy-root-pre-consolidacao.sql
 database/migrations/010_producao_apoio_clinico.sql
+database/migrations/011_auth_clients_handoff.sql
 database/migrations/legacy/migration_ouvidoria_v2_8.sql
 database/migrations/legacy/migration_permissions.sql
 database/migrations/legacy/migration_regulacao_acessos_v2_6.sql
@@ -30,7 +31,6 @@ database/migrations/legacy/migration_unidades.sql
 database/schema.sql
 database/update.sql
 docs/FILELIST.txt
-docs/LEIA-ME-IMPLANTACAO.md
 docs/NOVIDADES.md
 docs/ORGANIZACAO_V2.10.1.md
 docs/README.md
@@ -46,10 +46,13 @@ docs/instalacao/REIMPLANTE_V2.10.1.md
 documentos.html
 facilitawhats.html
 functions/_middleware.js
+functions/api/_auth_clients.js
 functions/api/_permissions.js
 functions/api/_unidades.js
 functions/api/_utils.js
 functions/api/audit-log.js
+functions/api/auth-clients/[app_key].js
+functions/api/auth-clients/index.js
 functions/api/chamados/[id].js
 functions/api/chamados/index.js
 functions/api/change-password.js
@@ -59,6 +62,7 @@ functions/api/chat/messages.js
 functions/api/chat/status.js
 functions/api/chat/support-rooms.js
 functions/api/handoff.js
+functions/api/handoff/consume.js
 functions/api/links/[id].js
 functions/api/links/index.js
 functions/api/login.js

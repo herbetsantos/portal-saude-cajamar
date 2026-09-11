@@ -302,22 +302,32 @@ function setupFerramentasDropdown() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 }
 
-async function goToExternalWithHandoff(url, openMode) {
+async function goToExternalWithHandoff(appKey, url, openMode) {
   const abrirNovaAba = openMode !== '_self';
+  if (!appKey) {
+    if (abrirNovaAba) window.open(url, '_blank', 'noopener');
+    else window.location.href = url;
+    return;
+  }
+  let destination = '/';
   try {
-    const res = await fetch('/api/handoff', { method: 'POST', credentials: 'same-origin' });
-    if (res.ok) {
-      const { token } = await res.json();
-      const sep = url.includes('?') ? '&' : '?';
-      const finalUrl = `${url}${sep}handoff=${encodeURIComponent(token)}`;
-      if (abrirNovaAba) window.open(finalUrl, '_blank', 'noopener');
-      else window.location.href = finalUrl;
-      return;
-    }
-  } catch { /* cai no fallback abaixo */ }
-  // fallback: vai sem o código (site vai pedir login de novo)
-  if (abrirNovaAba) window.open(url, '_blank', 'noopener');
-  else window.location.href = url;
+    const u = new URL(url, window.location.href);
+    destination = `${u.pathname}${u.search}${u.hash}` || '/';
+  } catch {}
+  try {
+    const res = await fetch('/api/handoff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ app_key: appKey, destination }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.redirect_url) throw new Error(data.error || 'Não foi possível gerar o acesso integrado.');
+    if (abrirNovaAba) window.open(data.redirect_url, '_blank', 'noopener');
+    else window.location.href = data.redirect_url;
+  } catch (err) {
+    alert(err?.message || 'Não foi possível acessar a aplicação integrada.');
+  }
 }
 
 async function loadFerramentasMenu(perms) {
@@ -338,7 +348,7 @@ async function loadFerramentasMenu(perms) {
           const novaAba = l.open_mode !== '_self';
           const targetAttr = isExternal ? '' : ` target="${novaAba ? '_blank' : '_self'}" rel="noopener"`;
           return `
-          <a class="submenu__link" href="${escapeAttr(l.url)}"${targetAttr}${isExternal ? ` data-external-tool="1" data-open-mode="${l.open_mode === '_self' ? '_self' : '_blank'}"` : ''}>
+          <a class="submenu__link" href="${escapeAttr(l.url)}"${targetAttr}${isExternal ? ` data-external-tool="1" data-auth-client="${escapeAttr(l.auth_client_key || '')}" data-open-mode="${l.open_mode === '_self' ? '_self' : '_blank'}"` : ''}>
             <span class="cross">✚</span>${escapeHtml(l.title)}
           </a>`;
         }).join('')
@@ -349,7 +359,7 @@ async function loadFerramentasMenu(perms) {
     menu.querySelectorAll('a[data-external-tool]').forEach((a) => {
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        goToExternalWithHandoff(a.getAttribute('href'), a.dataset.openMode);
+        goToExternalWithHandoff(a.dataset.authClient || '', a.getAttribute('href'), a.dataset.openMode);
       });
     });
   } catch {

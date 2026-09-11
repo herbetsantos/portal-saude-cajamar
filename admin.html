@@ -33,6 +33,7 @@
       <button class="admin-tab is-active" data-tab="updates">Atualizações</button>
       <button class="admin-tab" data-tab="solicitacoes">Solicitações<span id="pendingBadge" class="admin-tab__count" style="display:none">0</span></button>
       <button class="admin-tab" data-tab="ferramenta">Ferramentas</button>
+      <button class="admin-tab" data-tab="integracoes" id="authClientsTab" style="display:none">Aplicações integradas</button>
       <button class="admin-tab" data-tab="documento">Documentos Úteis</button>
       <button class="admin-tab" data-tab="manual">Manuais de Uso</button>
       <button class="admin-tab" data-tab="relatorios">Relatórios</button>
@@ -122,6 +123,26 @@
           </div>
         </div>
         <div class="table-wrap" data-table="ferramenta"></div>
+      </section>
+
+      <section class="panel-section" data-panel="integracoes">
+        <div class="panel-section__head">
+          <div>
+            <div class="panel-section__title">Aplicações integradas</div>
+            <div class="panel-section__desc">Aplicações externas autorizadas a receber login do Apoio APS Cajamar. O domínio é resolvido pelo backend; a tela de login nunca aceita uma URL externa arbitrária.</div>
+          </div>
+        </div>
+        <div id="authClientsWrap"><div class="skeleton-loading">Carregando aplicações…</div></div>
+        <form id="addAuthClientForm" class="inline-form">
+          <div class="field"><label for="acKey">Chave</label><input id="acKey" type="text" placeholder="ex.: emulti" pattern="[a-z0-9][a-z0-9_-]{1,63}" required></div>
+          <div class="field"><label for="acName">Nome</label><input id="acName" type="text" placeholder="Nome da plataforma" required></div>
+          <div class="field field--full"><label for="acOrigin">Origem HTTPS</label><input id="acOrigin" type="url" placeholder="https://plataforma.pages.dev" required></div>
+          <div class="field"><label for="acCallback">Caminho de callback</label><input id="acCallback" type="text" value="/" required></div>
+          <div class="field"><label for="acDefaultDest">Destino padrão</label><input id="acDefaultDest" type="text" value="/" required></div>
+          <div class="field"><label for="acActive">Situação</label><select id="acActive"><option value="1">Ativa</option><option value="0">Inativa</option></select></div>
+          <div class="inline-form__actions"><button type="submit" class="btn btn--accent btn--sm">Cadastrar aplicação</button></div>
+          <div id="addAuthClientMsg" class="form-msg" style="grid-column:1/-1"></div>
+        </form>
       </section>
 
       <section class="panel-section" data-panel="documento">

@@ -7,15 +7,16 @@
 
 ## Atualização do Portal atual
 
-Para um Portal já operando na linha 2.9.x, a atualização específica dos novos ambientes é:
+Para um Portal já operando na versão 2.10.1, aplique a migration de autenticação central:
 
 ```bash
-wrangler d1 execute portal-saude-db --remote --file=./database/migrations/010_producao_apoio_clinico.sql
+wrangler d1 execute portal-saude-db --remote --file=./database/migrations/011_auth_clients_handoff.sql
 ```
 
 ## Migrations
 
-- `migrations/010_producao_apoio_clinico.sql` — habilita as permissões opt-in de Produção e Apoio Clínico e atualiza o metadado do Portal para 2.10.1.
+- `migrations/010_producao_apoio_clinico.sql` — habilita as permissões opt-in de Produção e Apoio Clínico.
+- `migrations/011_auth_clients_handoff.sql` — cria o cadastro genérico de aplicações integradas e vincula o handoff a `app_key` e destino.
 - `migrations/legacy/` — migrations históricas preservadas com os nomes originais. Não execute todas em sequência em um banco atual; várias já estão aplicadas e/ou consolidadas.
 
 ## Arquivo

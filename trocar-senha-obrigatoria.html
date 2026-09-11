@@ -40,55 +40,45 @@
   </div>
 
   <script>
-    // Para onde ir depois de trocar a senha (ver mesma lógica em login.html).
-    const ALLOWED_NEXT_HOSTS = [
-      'emulti.pages.dev',
-    ];
-    function safeNextUrl(raw) {
-      if (!raw) return '/portal.html';
-      if (raw.startsWith('/')) return raw;
-      try {
-        const u = new URL(raw);
-        if (u.protocol === 'https:' && ALLOWED_NEXT_HOSTS.includes(u.hostname)) return raw;
-      } catch { /* URL inválida, ignora */ }
-      return '/portal.html';
-    }
-    async function goToNext(url) {
-      if (url.startsWith('/')) { window.location.href = url; return; }
-      try {
-        const res = await fetch('/api/handoff', { method: 'POST', credentials: 'same-origin' });
-        if (res.ok) {
-          const { token } = await res.json();
-          const sep = url.includes('?') ? '&' : '?';
-          window.location.href = `${url}${sep}handoff=${encodeURIComponent(token)}`;
-          return;
-        }
-      } catch { /* cai no fallback abaixo */ }
-      window.location.href = url;
-    }
     const params = new URLSearchParams(window.location.search);
-    const nextParam = params.get('next');
-    const nextUrl = safeNextUrl(nextParam);
+    function safeInternalPath(raw, fallback) {
+      if (!raw) return fallback;
+      const value=String(raw).trim();
+      if (value.startsWith('/') && !value.startsWith('//') && value.length <= 1000) return value;
+      return fallback;
+    }
+    function safeAppKey(raw) {
+      const key=String(raw||'').trim().toLowerCase();
+      return /^[a-z0-9][a-z0-9_-]{1,63}$/.test(key) ? key : null;
+    }
+    const appKey=safeAppKey(params.get('app'));
+    const appDestination=safeInternalPath(params.get('dest'),'/');
+    const nextUrl=safeInternalPath(params.get('next'),'/portal.html');
+
+    async function finishFlow() {
+      if (!appKey) { window.location.href=nextUrl; return; }
+      const res=await fetch('/api/handoff',{
+        method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',
+        body:JSON.stringify({app_key:appKey,destination:appDestination})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.redirect_url) throw new Error(data.error||'Não foi possível acessar a aplicação solicitada.');
+      window.location.href=data.redirect_url;
+    }
 
     const form = document.getElementById('changeForm');
     const msg = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
 
-    // Garante que o usuário está autenticado. Se já tiver trocado a senha
-    // (ex.: acessou esta página de novo por engano), manda pro destino.
     (async () => {
       try {
         const res = await fetch('/api/me', { credentials: 'same-origin' });
-        if (!res.ok) {
-          window.location.href = '/login.html';
-          return;
-        }
+        if (!res.ok) { window.location.href = '/login.html'; return; }
         const data = await res.json();
-        if (!data.user || !data.user.mustChangePassword) {
-          goToNext(nextUrl);
-        }
-      } catch {
-        window.location.href = '/login.html';
+        if (!data.user || !data.user.mustChangePassword) await finishFlow();
+      } catch (err) {
+        msg.className='form-msg is-error';
+        msg.textContent=err?.message||'Não foi possível validar a sessão.';
       }
     })();
 
@@ -96,7 +86,6 @@
       e.preventDefault();
       msg.className = 'form-msg';
       msg.textContent = '';
-
       const newPass = document.getElementById('newPass').value;
       const newPass2 = document.getElementById('newPass2').value;
       if (newPass !== newPass2) {
@@ -104,23 +93,18 @@
         msg.textContent = 'As senhas não coincidem.';
         return;
       }
-
       submitBtn.disabled = true;
       submitBtn.textContent = 'Salvando…';
-
       try {
         const res = await fetch('/api/change-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({
-            currentPassword: document.getElementById('curPass').value,
-            newPassword: newPass,
-          }),
+          body: JSON.stringify({ currentPassword: document.getElementById('curPass').value, newPassword: newPass }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Não foi possível trocar a senha.');
-        goToNext(nextUrl);
+        await finishFlow();
       } catch (err) {
         msg.className = 'form-msg is-error';
         msg.textContent = err.message;

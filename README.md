@@ -1,10 +1,10 @@
 # Portal Saúde Cajamar
 
-Versão do pacote: **2.10.1**  
+Versão do pacote: **2.11.0**  
 Banco compartilhado: **Cloudflare D1 `portal-saude-db`**  
 Plataforma: **Cloudflare Pages + Pages Functions + D1**
 
-A versão 2.10.1 mantém o comportamento da 2.10.0 e reorganiza o repositório antes do reimplante. As páginas públicas permanecem na raiz para não alterar URLs existentes. Documentação e migrations foram separadas em pastas próprias.
+A versão 2.11.0 transforma o Apoio APS Cajamar no ponto central de autenticação para aplicações externas confiáveis. O handoff deixa de aceitar URLs externas arbitrárias e passa a usar aplicações cadastradas por `app_key`, mantendo o login existente do Portal.
 
 ## Estrutura
 
@@ -37,7 +37,7 @@ portal-saude-cajamar/
 
 Leia primeiro:
 
-**`docs/instalacao/REIMPLANTE_V2.10.1.md`**
+**`docs/instalacao/REIMPLANTE_V2.10.1.md`** (base de reimplante) e a migration `database/migrations/011_auth_clients_handoff.sql`
 
 O reimplante não deve apagar nem recriar o `portal-saude-db` existente.
 
@@ -56,11 +56,13 @@ Depois configure o `database_id` em `wrangler.toml`.
 
 Se o Portal atual já está na linha **2.9.x** e suas migrations anteriores já foram aplicadas, **não rode novamente `database/update.sql`**. Esse arquivo é consolidado e contém alterações históricas que não são idempotentes.
 
-Para a passagem de 2.9.x/2.10.0 para este pacote, aplique apenas:
+Se a base já está em 2.10.1, aplique apenas:
 
 ```bash
-wrangler d1 execute portal-saude-db --remote --file=./database/migrations/010_producao_apoio_clinico.sql
+wrangler d1 execute portal-saude-db --remote --file=./database/migrations/011_auth_clients_handoff.sql
 ```
+
+Se ainda estiver antes da 2.10.1, aplique primeiro a `010_producao_apoio_clinico.sql` e depois a `011_auth_clients_handoff.sql`.
 
 O arquivo `database/update.sql` foi preservado para cenários de atualização a partir de bases antigas e deve ser usado somente após conferir a versão de origem.
 
@@ -74,7 +76,7 @@ Se o projeto estiver conectado ao GitHub no Cloudflare Pages, o deploy pode ocor
 
 ## Autenticação e permissões
 
-- O Portal é a fonte de verdade para usuário, senha, sessão e vínculo com unidades.
+- O Apoio APS Cajamar é a fonte central de autenticação para as plataformas integradas. Cada plataforma mantém sua própria sessão e suas próprias regras operacionais.
 - Senhas são armazenadas por hash, nunca em texto puro.
 - Senha temporária pode exigir troca no primeiro acesso.
 - O Super Administrador controla acesso aos ambientes externos.
@@ -89,12 +91,22 @@ Cada ambiente possui código/repositório e URL próprios:
 - **Produção**
 - **Apoio Clínico / IA**
 
-O acesso entre URLs usa handoff de sessão de uso único, sem duplicação de senha.
+O acesso entre plataformas usa handoff de uso único vinculado a uma `app_key` cadastrada em Administração → Aplicações integradas. O domínio de destino é resolvido pelo backend e nunca é recebido livremente pela página de login.
 
 Consulte:
 
 - `docs/instalacao/INSTALL_REGULACAO.md`
 - `docs/instalacao/INSTALAR_NOVOS_AMBIENTES.md`
+
+
+## Integrar uma nova plataforma
+
+1. Cadastre a plataforma em **Administração → Aplicações integradas** com uma `app_key`, origem HTTPS, callback e destino padrão.
+2. A plataforma envia o usuário para `https://apoioapscajamar.pages.dev/login.html?app=<app_key>&dest=<caminho-interno>`.
+3. Após autenticar, o Apoio APS emite um token de uso único vinculado à aplicação e redireciona para o callback cadastrado.
+4. O backend da plataforma consome o token com `POST /api/handoff/consume`, enviando `token` e sua própria `app_key`, cria sua sessão local e aplica suas regras próprias de autorização.
+
+O Portal centraliza **autenticação e identidade**. Cada aplicação continua responsável por suas permissões e dados operacionais. A tela de login não aceita domínio externo informado pelo navegador.
 
 ## Ouvidoria IA
 

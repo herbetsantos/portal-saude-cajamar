@@ -9,8 +9,12 @@ const FERRAMENTA_FEATURE_OPTIONS = [
   { key: 'malotes', label: 'Malotes e Remessas' },
   { key: 'facilitawhats', label: 'FacilitaWhats' },
   { key: 'mensageiro_esus', label: 'Mensageiro eSUS' },
+  { key: 'regulacao_vagas', label: 'eMulti | Regulação' },
+  { key: 'producao', label: 'Produção' },
+  { key: 'apoio_clinico', label: 'Apoio Clínico / IA' },
 ];
 let currentUser = null;
+let AUTH_CLIENTS = [];
 
 // Nomes das unidades ativas, usados para preencher o campo "Unidade de
 // lotação" (select fixo) nos formulários de usuário — mesma fonte de dados
@@ -321,6 +325,131 @@ async function sendSignupResolution(id, action) {
   }
 }
 
+
+// ---------- Aplicações integradas ----------
+async function loadAuthClientsOptions() {
+  try {
+    const res = await fetch('/api/auth-clients', { credentials: 'same-origin' });
+    if (!res.ok) { AUTH_CLIENTS = []; return []; }
+    const data = await res.json();
+    AUTH_CLIENTS = data.clients || [];
+  } catch { AUTH_CLIENTS = []; }
+  return AUTH_CLIENTS;
+}
+
+function authClientOptionsHtml(selected = '') {
+  return '<option value="">— Sem login integrado —</option>' + AUTH_CLIENTS
+    .filter((c) => c.active || c.app_key === selected)
+    .map((c) => `<option value="${escapeAttr(c.app_key)}" ${c.app_key === selected ? 'selected' : ''}>${escapeHtml(c.name)} (${escapeHtml(c.app_key)})${c.active ? '' : ' — inativa'}</option>`)
+    .join('');
+}
+
+async function loadAuthClientsTable() {
+  const wrap = document.getElementById('authClientsWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="skeleton-loading">Carregando aplicações…</div>';
+  await loadAuthClientsOptions();
+  wrap.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Aplicação</th><th>Chave</th><th>Origem</th><th>Callback</th><th>Destino padrão</th><th>Status</th><th></th></tr></thead>
+      <tbody>${AUTH_CLIENTS.length ? AUTH_CLIENTS.map((c) => `
+        <tr>
+          <td>${escapeHtml(c.name)}</td>
+          <td><code>${escapeHtml(c.app_key)}</code></td>
+          <td class="muted-url">${escapeHtml(c.origin)}</td>
+          <td><code>${escapeHtml(c.callback_path || '/')}</code></td>
+          <td><code>${escapeHtml(c.default_destination || '/')}</code></td>
+          <td>${c.active ? '<span class="badge badge--admin">Ativa</span>' : '<span class="muted">Inativa</span>'}</td>
+          <td class="actions-cell"><div class="row-actions">
+            <button class="btn btn--outline btn--sm" data-edit-auth-client="${escapeAttr(c.app_key)}">Editar</button>
+            <button class="btn btn--danger btn--sm" data-delete-auth-client="${escapeAttr(c.app_key)}">Excluir</button>
+          </div></td>
+        </tr>`).join('') : '<tr><td colspan="7" class="muted">Nenhuma aplicação cadastrada.</td></tr>'}</tbody>
+    </table>`;
+  wrap.querySelectorAll('[data-edit-auth-client]').forEach((btn) => {
+    const item = AUTH_CLIENTS.find((x) => x.app_key === btn.dataset.editAuthClient);
+    btn.addEventListener('click', () => openEditAuthClientModal(item));
+  });
+  wrap.querySelectorAll('[data-delete-auth-client]').forEach((btn) => {
+    btn.addEventListener('click', () => confirmDeleteAuthClient(btn.dataset.deleteAuthClient));
+  });
+}
+
+function openEditAuthClientModal(item) {
+  if (!item) return;
+  openModal(`
+    <h3>Editar aplicação integrada</h3>
+    <p class="muted">Chave: <code>${escapeHtml(item.app_key)}</code></p>
+    <div id="editAuthClientMsg" class="form-msg"></div>
+    <div class="field"><label>Nome</label><input id="editAcName" value="${escapeAttr(item.name)}"></div>
+    <div class="field"><label>Origem HTTPS</label><input id="editAcOrigin" type="url" value="${escapeAttr(item.origin)}"></div>
+    <div class="field"><label>Caminho de callback</label><input id="editAcCallback" value="${escapeAttr(item.callback_path || '/')}"></div>
+    <div class="field"><label>Destino padrão</label><input id="editAcDefault" value="${escapeAttr(item.default_destination || '/')}"></div>
+    <div class="field"><label>Situação</label><select id="editAcActive"><option value="1" ${item.active ? 'selected' : ''}>Ativa</option><option value="0" ${!item.active ? 'selected' : ''}>Inativa</option></select></div>
+    <div class="modal__actions"><button class="btn btn--outline btn--sm" id="cancelEditAc" type="button">Cancelar</button><button class="btn btn--accent btn--sm" id="saveEditAc" type="button">Salvar</button></div>`);
+  document.getElementById('cancelEditAc').addEventListener('click', closeModal);
+  document.getElementById('saveEditAc').addEventListener('click', async () => {
+    const msg = document.getElementById('editAuthClientMsg');
+    try {
+      const res = await fetch(`/api/auth-clients/${encodeURIComponent(item.app_key)}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
+        body:JSON.stringify({
+          name:document.getElementById('editAcName').value.trim(),
+          origin:document.getElementById('editAcOrigin').value.trim(),
+          callback_path:document.getElementById('editAcCallback').value.trim(),
+          default_destination:document.getElementById('editAcDefault').value.trim(),
+          active:document.getElementById('editAcActive').value === '1',
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Não foi possível salvar.');
+      closeModal();
+      await loadAuthClientsTable();
+      await loadLinksTable('ferramenta');
+    } catch (err) { msg.className='form-msg is-error'; msg.textContent=err.message; }
+  });
+}
+
+function confirmDeleteAuthClient(appKey) {
+  openModal(`<h3>Excluir aplicação integrada</h3><p class="muted">A exclusão só é permitida quando nenhuma ferramenta estiver vinculada. Para suspender temporariamente, prefira inativar.</p><div id="deleteAcMsg" class="form-msg"></div><div class="modal__actions"><button class="btn btn--outline btn--sm" id="cancelDeleteAc" type="button">Cancelar</button><button class="btn btn--danger btn--sm" id="confirmDeleteAc" type="button">Excluir</button></div>`);
+  document.getElementById('cancelDeleteAc').addEventListener('click', closeModal);
+  document.getElementById('confirmDeleteAc').addEventListener('click', async () => {
+    const res = await fetch(`/api/auth-clients/${encodeURIComponent(appKey)}`, { method:'DELETE', credentials:'same-origin' });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok) { const m=document.getElementById('deleteAcMsg'); m.className='form-msg is-error'; m.textContent=data.error||'Não foi possível excluir.'; return; }
+    closeModal(); await loadAuthClientsTable();
+  });
+}
+
+const addAuthClientForm = document.getElementById('addAuthClientForm');
+if (addAuthClientForm) addAuthClientForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('addAuthClientMsg');
+  msg.className='form-msg'; msg.textContent='';
+  try {
+    const res = await fetch('/api/auth-clients', {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
+      body:JSON.stringify({
+        app_key:document.getElementById('acKey').value.trim(),
+        name:document.getElementById('acName').value.trim(),
+        origin:document.getElementById('acOrigin').value.trim(),
+        callback_path:document.getElementById('acCallback').value.trim(),
+        default_destination:document.getElementById('acDefaultDest').value.trim(),
+        active:document.getElementById('acActive').value === '1',
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Não foi possível cadastrar.');
+    addAuthClientForm.reset();
+    document.getElementById('acCallback').value='/';
+    document.getElementById('acDefaultDest').value='/';
+    document.getElementById('acActive').value='1';
+    msg.className='form-msg is-success'; msg.textContent='Aplicação cadastrada.';
+    await loadAuthClientsTable();
+    await loadLinksTable('ferramenta');
+  } catch (err) { msg.className='form-msg is-error'; msg.textContent=err.message; }
+});
+
 // ---------- Links (ferramenta / documento / manual) ----------
 async function loadLinksTable(category) {
   const wrap = document.querySelector(`.table-wrap[data-table="${category}"]`);
@@ -339,13 +468,13 @@ async function loadLinksTable(category) {
 
   wrap.innerHTML = `
     <table class="data-table">
-      <thead><tr><th>Título</th><th>URL</th>${category === 'ferramenta' ? '<th>Funcionalidade</th>' : ''}<th>Abre em</th><th>Ordem</th><th></th></tr></thead>
+      <thead><tr><th>Título</th><th>URL</th>${category === 'ferramenta' ? '<th>Funcionalidade</th><th>Login integrado</th>' : ''}<th>Abre em</th><th>Ordem</th><th></th></tr></thead>
       <tbody>
         ${items.length ? items.map((it) => `
           <tr>
             <td>${escapeHtml(it.title)}</td>
             <td class="muted-url" title="${escapeAttr(it.url)}">${escapeHtml(it.url)}</td>
-            ${category === 'ferramenta' ? `<td>${escapeHtml((FERRAMENTA_FEATURE_OPTIONS.find((f) => f.key === it.feature_key) || {}).label || '—')}</td>` : ''}
+            ${category === 'ferramenta' ? `<td>${escapeHtml((FERRAMENTA_FEATURE_OPTIONS.find((f) => f.key === it.feature_key) || {}).label || '—')}</td><td>${escapeHtml((AUTH_CLIENTS.find((c) => c.app_key === it.auth_client_key) || {}).name || '—')}</td>` : ''}
             <td>${it.open_mode === '_self' ? 'Mesma aba' : 'Nova aba'}</td>
             <td>${it.sort_order}</td>
             <td class="actions-cell"><div class="row-actions">
@@ -353,7 +482,7 @@ async function loadLinksTable(category) {
               <button class="btn btn--danger btn--sm" data-delete="${it.id}">Excluir</button>
             </div></td>
           </tr>
-        `).join('') : `<tr><td colspan="${category === 'ferramenta' ? 6 : 5}" style="color:var(--muted)">Nenhum item cadastrado.</td></tr>`}
+        `).join('') : `<tr><td colspan="${category === 'ferramenta' ? 7 : 5}" style="color:var(--muted)">Nenhum item cadastrado.</td></tr>`}
       </tbody>
     </table>
     <form class="inline-form" data-add-form="${category}">
@@ -372,6 +501,10 @@ async function loadLinksTable(category) {
           <option value="">— Nenhuma —</option>
           ${FERRAMENTA_FEATURE_OPTIONS.map((f) => `<option value="${f.key}">${escapeHtml(f.label)}</option>`).join('')}
         </select>
+      </div>
+      <div class="field">
+        <label>Login integrado</label>
+        <select data-field="auth_client_key">${authClientOptionsHtml('')}</select>
       </div>` : ''}
       <div class="field">
         <label>Abre em</label>
@@ -416,6 +549,7 @@ async function loadLinksTable(category) {
       sort_order: Number(addForm.querySelector('[data-field="sort_order"]').value) || 0,
       description: addForm.querySelector('[data-field="description"]').value.trim(),
       feature_key: featureField ? (featureField.value || null) : null,
+      auth_client_key: addForm.querySelector('[data-field="auth_client_key"]')?.value || null,
       open_mode: addForm.querySelector('[data-field="open_mode"]').value,
     };
     try {
@@ -455,6 +589,10 @@ function openEditLinkModal(item, category) {
         <option value="">— Nenhuma —</option>
         ${FERRAMENTA_FEATURE_OPTIONS.map((f) => `<option value="${f.key}" ${item.feature_key === f.key ? 'selected' : ''}>${escapeHtml(f.label)}</option>`).join('')}
       </select>
+    </div>
+    <div class="field">
+      <label>Login integrado</label>
+      <select id="editAuthClientKey">${authClientOptionsHtml(item.auth_client_key || '')}</select>
     </div>` : ''}
     <div class="field">
       <label>Abre em</label>
@@ -492,6 +630,7 @@ function openEditLinkModal(item, category) {
           sort_order: Number(document.getElementById('editOrder').value) || 0,
           description: document.getElementById('editDesc').value.trim(),
           feature_key: featureField ? (featureField.value || null) : null,
+          auth_client_key: document.getElementById('editAuthClientKey')?.value || null,
           open_mode: document.getElementById('editOpenMode').value,
         }),
       });
@@ -1946,6 +2085,8 @@ async function loadOuvidoriaAdmin() {
   document.getElementById('uUnidade').innerHTML = unidadeLotacaoOptionsHtml('');
 
   if (currentUser.role === 'super_admin') {
+    const authTab = document.getElementById('authClientsTab');
+    if (authTab) authTab.style.display = '';
     const opt = document.createElement('option');
     opt.value = 'admin_unidade';
     opt.textContent = 'Administrador de Unidade';
@@ -1980,6 +2121,7 @@ async function loadOuvidoriaAdmin() {
 
   setupTabs();
   if (currentUser.role !== 'admin_unidade') {
+    await loadAuthClientsOptions();
     loadUpdatesTable();
     loadLinksTable('ferramenta');
     loadLinksTable('documento');
@@ -1990,6 +2132,7 @@ async function loadOuvidoriaAdmin() {
     loadOuvidoriaAdmin();
   }
   if (currentUser.role === 'super_admin') {
+    loadAuthClientsTable();
     loadRolePermsTable();
     loadAuditLogTable();
   }

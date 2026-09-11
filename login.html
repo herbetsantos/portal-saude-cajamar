@@ -187,62 +187,56 @@
     const form = document.getElementById('loginForm');
     const msg = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
-
-    // Para onde ir depois do login (ex.: /receituario/?unidade=polvilho, ou
-    // uma URL completa de um subdomínio confiável, ex.:
-    // https://regulacao.saude.cajamar.sp.gov.br/).
-    // Por segurança (evitar open-redirect), só aceitamos:
-    //  (a) caminhos internos começando com "/", ou
-    //  (b) URLs https cujo host esteja na allowlist abaixo.
-    // Edite ALLOWED_NEXT_HOSTS ao publicar projetos separados que
-    // compartilham este login (ex.: Regulação de Vagas). Troque pelo
-    // domínio *.pages.dev real do projeto depois do deploy.
-    const ALLOWED_NEXT_HOSTS = [
-      'emulti.pages.dev',
-    ];
-    function safeNextUrl(raw) {
-      if (!raw) return '/portal.html';
-      if (raw.startsWith('/')) return raw;
-      try {
-        const u = new URL(raw);
-        if (u.protocol === 'https:' && ALLOWED_NEXT_HOSTS.includes(u.hostname)) return raw;
-      } catch { /* URL inválida, ignora */ }
-      return '/portal.html';
-    }
-
-    // Se o destino final é um domínio externo confiável (outro projeto
-    // Pages, mesmo banco), gera um código de repasse de uso único e anexa
-    // na URL antes de navegar — é assim que a sessão "atravessa" pro outro
-    // domínio, já que cookie de sessão não é enviado entre *.pages.dev
-    // diferentes. Se o destino é interno (começa com "/"), navega direto,
-    // sem nenhuma chamada extra.
-    async function goToNext(url) {
-      if (url.startsWith('/')) { window.location.href = url; return; }
-      try {
-        const res = await fetch('/api/handoff', { method: 'POST', credentials: 'same-origin' });
-        if (res.ok) {
-          const { token } = await res.json();
-          const sep = url.includes('?') ? '&' : '?';
-          window.location.href = `${url}${sep}handoff=${encodeURIComponent(token)}`;
-          return;
-        }
-      } catch { /* cai no fallback abaixo */ }
-      window.location.href = url; // fallback: vai sem o código (vai pedir login de novo lá)
-    }
-
     const params = new URLSearchParams(window.location.search);
-    const nextParam = params.get('next');
-    const nextUrl = safeNextUrl(nextParam);
 
-    // Se já estiver logado, vai direto pro destino.
+    function safeInternalPath(raw, fallback) {
+      if (!raw) return fallback;
+      const value = String(raw).trim();
+      if (value.startsWith('/') && !value.startsWith('//') && value.length <= 1000) return value;
+      return fallback;
+    }
+
+    function safeAppKey(raw) {
+      const key = String(raw || '').trim().toLowerCase();
+      return /^[a-z0-9][a-z0-9_-]{1,63}$/.test(key) ? key : null;
+    }
+
+    const appKey = safeAppKey(params.get('app'));
+    const appDestination = safeInternalPath(params.get('dest'), '/');
+    const nextUrl = safeInternalPath(params.get('next'), '/portal.html');
+
+    async function finishLogin() {
+      if (!appKey) {
+        window.location.href = nextUrl;
+        return;
+      }
+      const res = await fetch('/api/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ app_key: appKey, destination: appDestination }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.redirect_url) throw new Error(data.error || 'Não foi possível acessar a aplicação solicitada.');
+      window.location.href = data.redirect_url;
+    }
+
+    function passwordChangeUrl() {
+      if (appKey) {
+        return `/trocar-senha-obrigatoria.html?app=${encodeURIComponent(appKey)}&dest=${encodeURIComponent(appDestination)}`;
+      }
+      return `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
+    }
+
     fetch('/api/me', { credentials: 'same-origin' }).then(async (r) => {
       if (!r.ok) return;
       const data = await r.json();
       if (data.user && window.SaudeTheme) window.SaudeTheme.syncFromUser(data.user);
       if (data.user && data.user.mustChangePassword) {
-        window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
+        window.location.href = passwordChangeUrl();
       } else {
-        goToNext(nextUrl);
+        try { await finishLogin(); }
+        catch (err) { msg.className='form-msg is-error'; msg.textContent=err.message; }
       }
     });
 
@@ -252,7 +246,6 @@
       msg.textContent = '';
       submitBtn.disabled = true;
       submitBtn.textContent = 'Entrando…';
-
       try {
         const res = await fetch('/api/login', {
           method: 'POST',
@@ -267,9 +260,9 @@
         if (!res.ok) throw new Error(data.error || 'Não foi possível entrar.');
         if (data.user && window.SaudeTheme) window.SaudeTheme.syncFromUser(data.user);
         if (data.user && data.user.mustChangePassword) {
-          window.location.href = `/trocar-senha-obrigatoria.html?next=${encodeURIComponent(nextUrl)}`;
+          window.location.href = passwordChangeUrl();
         } else {
-          goToNext(nextUrl);
+          await finishLogin();
         }
       } catch (err) {
         msg.className = 'form-msg is-error';

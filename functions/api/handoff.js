@@ -1,13 +1,5 @@
-// POST /api/handoff -> gera um código de uso único (60s de validade) que
-// carrega a identidade do usuário logado para outro projeto Cloudflare
-// Pages que lê o MESMO banco (env.DB). Nunca carrega senha nem o token de
-// sessão em si — só permite que o outro site crie a PRÓPRIA sessão local
-// para o mesmo user_id, depois de validar o código uma única vez.
-// Ver database/migrations/legacy/migration_regulacao_setup.sql (tabela handoff_tokens) e o
-// functions/_middleware.js do projeto regulacao-vagas-cajamar, que consome
-// este código.
-
 import { json, getAuthUser } from './_utils.js';
+import { normalizeAppKey, normalizePath, getAuthClient, buildClientRedirect } from './_auth_clients.js';
 
 function randomToken() {
   const bytes = new Uint8Array(32);
@@ -17,19 +9,35 @@ function randomToken() {
 
 export async function onRequestPost({ request, env }) {
   const user = await getAuthUser(request, env);
-  if (!user) return json({ error: 'Não autenticado.' }, 401);
+  if (!user) return json({ error: 'Não autenticado.' }, 401, { 'Cache-Control': 'no-store' });
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Requisição inválida.' }, 400); }
+
+  const appKey = normalizeAppKey(body?.app_key);
+  if (!appKey) return json({ error: 'Aplicação inválida.' }, 400);
+
+  const client = await getAuthClient(env, appKey, { activeOnly: true });
+  if (!client) return json({ error: 'Aplicação não cadastrada ou inativa.' }, 404);
+
+  const destination = normalizePath(body?.destination, client.default_destination || '/');
+  if (!destination) return json({ error: 'Destino inválido.' }, 400);
 
   const token = randomToken();
   const expiresAt = new Date(Date.now() + 60 * 1000).toISOString();
 
   await env.DB.prepare(
-    'INSERT INTO handoff_tokens (token, user_id, expires_at) VALUES (?, ?, ?)'
-  ).bind(token, user.id, expiresAt).run();
+    'INSERT INTO handoff_tokens (token,user_id,expires_at,app_key,destination) VALUES (?,?,?,?,?)'
+  ).bind(token, user.id, expiresAt, appKey, destination).run();
 
-  // Limpeza best-effort de códigos velhos, pra tabela não crescer para sempre.
   try {
-    await env.DB.prepare("DELETE FROM handoff_tokens WHERE expires_at < datetime('now', '-1 hour')").run();
-  } catch { /* não crítico */ }
+    await env.DB.prepare("DELETE FROM handoff_tokens WHERE expires_at < datetime('now', '-1 hour') OR (used=1 AND created_at < datetime('now', '-1 hour'))").run();
+  } catch {}
 
-  return json({ token });
+  return json({
+    ok: true,
+    app_key: appKey,
+    expires_at: expiresAt,
+    redirect_url: buildClientRedirect(client, token),
+  }, 200, { 'Cache-Control': 'no-store' });
 }

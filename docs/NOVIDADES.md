@@ -1,5 +1,15 @@
 # Novidades do Portal Saúde Cajamar
 
+## 2.11.0 — Autenticação central para múltiplas plataformas
+
+- Novo cadastro de **Aplicações integradas** no painel do Super Administrador.
+- Cada aplicação recebe uma `app_key`, origem HTTPS, callback e destino padrão.
+- O login central recebe apenas `app` e um caminho interno `dest`; URLs externas arbitrárias deixam de ser aceitas.
+- Tokens de handoff passam a ser vinculados à aplicação e ao destino e continuam de uso único e curta duração.
+- Novo endpoint servidor-a-servidor `/api/handoff/consume` para que plataformas externas consumam o token sem ler diretamente o banco do Portal.
+- Ferramentas externas podem ser associadas a uma aplicação integrada e recebem handoff automaticamente ao serem abertas pelo Portal.
+- A eMulti é cadastrada automaticamente como primeiro cliente (`emulti`).
+
 ## 2.10.1 — Reorganização segura do repositório
 
 - Documentação centralizada em `docs/`.

@@ -1,3 +1,14 @@
+# Novidades
+
+## 2.11.1
+- Desindexação global via `X-Robots-Tag`.
+- Rastreamento mantido para que buscadores leiam `noindex` e façam revisão de segurança.
+- Reforço de identificação institucional no login e na solicitação de acesso.
+- Transparência sobre a hospedagem atual em Cloudflare Pages.
+- Política de Privacidade e Termos de Uso públicos e desindexados.
+- Ajuste da CSP para o Cloudflare Turnstile e retirada do Google Fonts da troca de senha.
+- Sem migration de banco.
+
 # Novidades do Portal Saúde Cajamar
 
 ## 2.11.0 — Autenticação central para múltiplas plataformas

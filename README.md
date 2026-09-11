@@ -1,10 +1,24 @@
 # Portal Saúde Cajamar
 
-Versão do pacote: **2.11.0**  
+Versão do pacote: **2.11.1**  
 Banco compartilhado: **Cloudflare D1 `portal-saude-db`**  
 Plataforma: **Cloudflare Pages + Pages Functions + D1**
 
 A versão 2.11.0 transforma o Apoio APS Cajamar no ponto central de autenticação para aplicações externas confiáveis. O handoff deixa de aceitar URLs externas arbitrárias e passa a usar aplicações cadastradas por `app_key`, mantendo o login existente do Portal.
+
+## 2.11.1 — desindexação e reforço de legitimidade do acesso
+
+- adiciona `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex` para todo o Portal;
+- mantém o rastreamento permitido para que mecanismos de busca consigam ler a diretiva `noindex` e reavaliar a segurança;
+- remove o sitemap público como fonte de descoberta de páginas;
+- aplica `Cache-Control: no-store` às páginas de autenticação e solicitação de acesso;
+- reforça a identificação institucional do login e do cadastro público;
+- informa de forma transparente que a hospedagem atual é feita em `apoioapscajamar.pages.dev` pela Cloudflare Pages;
+- adiciona páginas públicas de Política de Privacidade e Termos de Uso, ambas desindexadas;
+- reduz dependências externas nas páginas de autenticação e ajusta a CSP para o Turnstile;
+- deixa explícito que o Portal não exige instalação de programas, extensões ou aplicativos;
+- não altera banco de dados, credenciais, permissões nem o handoff 2.11.0.
+
 
 ## Estrutura
 
